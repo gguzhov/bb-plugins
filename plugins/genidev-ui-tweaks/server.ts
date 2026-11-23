@@ -14,6 +14,15 @@ export const rpcContract = defineRpcContract({
 });
 
 export default async function plugin(bb: BbPluginApi) {
+  bb.settings.define({
+    reduceThemeStyleWork: {
+      type: "boolean",
+      label: "Reduce theme rendering work",
+      description: "Skip relational styles from ChatGPT Skin and Beautiful Chat while keeping their palette and other styles.",
+      default: false,
+    },
+  });
+
   const service = createCheckService((id) => bb.realtime.publish(CHECK_CHANNEL, { id }));
 
   bb.rpc.register(rpcContract, {

@@ -11,8 +11,9 @@ import "./styles/panel-bar.css";
 import "./styles/header-touch.css";
 import "./styles/third-party-fixes.css";
 import { useEffect } from "react";
-import { definePluginApp, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, useRealtime, useRpc, useSettings } from "@get-bb/plugin-sdk/app";
 import { installCloseOnChat } from "./close-on-chat";
+import { installThemePerformance } from "./theme-performance";
 import { installHeaderLabels } from "./header-labels";
 import { runAnchors } from "./anchors";
 import { CHECK_CHANNEL } from "./check-protocol";
@@ -26,6 +27,8 @@ const LABELS_KEY = "__genidevUiTweaksHeaderLabels";
     и снимает его при выгрузке плагина (reload не задваивает слушатель). */
 function GenidevUiTweaksStyles() {
   const rpc = useRpc<typeof rpcContract>();
+  const reduceThemeStyleWork = useSettings().values?.reduceThemeStyleWork === true;
+  useEffect(() => reduceThemeStyleWork ? installThemePerformance(document) : undefined, [reduceThemeStyleWork]);
   // Самопроверка якорей: по запросу `bb genidev-ui-tweaks check` и один раз после загрузки. Без наблюдателей и опросов.
   const send = (id: string | null) => {
     rpc.call("report", { report: { id, results: runAnchors(document) } }).catch(() => {});
