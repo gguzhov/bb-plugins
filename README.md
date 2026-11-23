@@ -1,5 +1,7 @@
 # genidev plugins for BB
 
+[![genidev](assets/genidev.png)](https://github.com/gguzhov)
+
 Plugins for BB by [genidev](https://github.com/gguzhov). MIT licensed.
 
 - [Browser tidy](plugins/browser-tidy)
