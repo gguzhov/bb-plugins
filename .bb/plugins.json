@@ -1,0 +1,55 @@
+{
+  "$schema": "https://getbb.app/schemas/plugins.schema.json",
+  "schemaVersion": 1,
+  "name": "genidev-plugins",
+  "plugins": [
+    {
+      "name": "browser-tidy",
+      "source": "./plugins/browser-tidy"
+    },
+    {
+      "name": "chat-tables",
+      "source": "./plugins/chat-tables"
+    },
+    {
+      "name": "csv-table",
+      "source": "./plugins/csv-table"
+    },
+    {
+      "name": "directory-finder",
+      "source": "./plugins/directory-finder"
+    },
+    {
+      "name": "genidev-project-colors",
+      "source": "./plugins/genidev-project-colors"
+    },
+    {
+      "name": "genidev-ui-tweaks",
+      "source": "./plugins/genidev-ui-tweaks"
+    },
+    {
+      "name": "mobile-home-composer",
+      "source": "./plugins/mobile-home-composer"
+    },
+    {
+      "name": "pdf-chat",
+      "source": "./plugins/pdf-chat"
+    },
+    {
+      "name": "short-titles",
+      "source": "./plugins/short-titles"
+    },
+    {
+      "name": "ssh-fleet",
+      "source": "./plugins/ssh-fleet"
+    },
+    {
+      "name": "task-queue",
+      "source": "./plugins/task-queue"
+    },
+    {
+      "name": "thread-materials",
+      "source": "./plugins/thread-materials"
+    }
+  ]
+}

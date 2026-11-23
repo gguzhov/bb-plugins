@@ -1,0 +1,61 @@
+/* Шапка треда при нехватке места: название обрезается многоточием, правый ряд не переносится и не
+   наезжает на название, подписи кнопок превращаются в значки.
+   Устройство (bb): <header> — контейнер @container/page-header (container-type: inline-size), поэтому
+   правила ниже зависят от ширины самой шапки, а не окна: при открытой правой панели шапка уже.
+   Левая часть (название + меню «…») — flex-1 min-w-0, правая — shrink-0, название — .truncate.
+   Порядок сворачивания (первым сворачивается менее важное):
+     1. ширина шапки до 520px: подпись git-кнопки (Commit и подобные) превращается в значок,
+        кнопка стоимости треда (плагин burn) — в значок-пламя; доступное имя кнопки остаётся
+        (текст лежит в разметке, скрыт размером шрифта 0), подсказку при наведении ставит header-labels.ts;
+     2. дальше сворачивает сам bb: на узкой панели (уже 560px в режиме разделённых панелей) и на телефоне
+        «Open in…» и git-кнопка уходят в меню «…» у названия.
+   Дольше всех остаются: показ правой панели, меню «…» у названия, «Open in…».
+   Ничего не прячется совсем: у каждой кнопки шапки нет второго видимого пути к той же функции.
+   Откат: убрать импорт header-collapse.css в app.tsx. */
+
+/* название: одна строка, многоточие; левая часть сжимается, а не правая */
+[data-testid="app-page-header-content-row"] .bb-thread-title,
+[data-testid="app-page-header-content-row"] .bb-thread-title > .truncate {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+[data-testid="app-page-header-content-row"] > div:has(> [data-thread-header-pane-actions]) {
+  flex-shrink: 0;
+}
+
+@container page-header (max-width: 520px) {
+  /* git-кнопка с подписью (у кнопок-значков есть aria-label, у подписанных — нет) */
+  [data-thread-header-responsive-action] button:not([aria-label]) {
+    position: relative;
+    width: 28px;
+    min-width: 28px;
+    padding: 0;
+    font-size: 0;
+    line-height: 0;
+    gap: 0;
+    /* как у соседних кнопок-значков: без рамки в покое */
+    border-color: transparent;
+  }
+  [data-thread-header-responsive-action] button:not([aria-label])::before {
+    content: "";
+    display: block;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    background-color: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M3 12h6'/%3E%3Cpath d='M15 12h6'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M3 12h6'/%3E%3Cpath d='M15 12h6'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  /* кнопка стоимости треда: только пламя */
+  [data-thread-header-workflow-actions] > [data-bb-plugin] button[data-burn-chip-button] {
+    width: 28px;
+    padding: 0;
+    justify-content: center;
+  }
+  [data-thread-header-workflow-actions] > [data-bb-plugin] button[data-burn-chip-button] > :not(svg) {
+    display: none;
+  }
+}

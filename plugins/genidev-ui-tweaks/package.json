@@ -1,0 +1,32 @@
+{
+  "name": "bb-plugin-genidev-ui-tweaks",
+  "version": "0.5.0",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.50",
+    "bbPluginSdk": ">=0.6.157"
+  },
+  "bb": {
+    "name": "Правки вида",
+    "description": "Набор небольших правок интерфейса bb: значок-булавка, правая панель въезжает поверх чата сдвигом, крестик закрытия, нажатие на свободное место чата или Escape закрывает правую панель. Команда bb genidev-ui-tweaks check проверяет, что правки работают после обновления bb.",
+    "branding": {
+      "icon": "Paintbrush"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx"
+  },
+  "scripts": {
+    "build": "bb plugin build .",
+    "test": "node --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit --skipLibCheck"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.157",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

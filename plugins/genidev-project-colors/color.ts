@@ -1,0 +1,3 @@
+export function fromHsv(h:number,s:number,v:number){const f=(n:number)=>{const k=(n+h/60)%6;return Math.round((v-v*s*Math.max(0,Math.min(k,4-k,1)))*255);};return [f(5),f(3),f(1)];}
+export const hex=(rgb:number[])=>'#'+rgb.map(n=>Math.round(Math.max(0,Math.min(255,n))).toString(16).padStart(2,'0')).join('').toUpperCase();
+export function toHsv(color:string){const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16)/255);const max=Math.max(...rgb),min=Math.min(...rgb),d=max-min;let h=0;if(d){if(max===rgb[0])h=((rgb[1]-rgb[2])/d)%6;else if(max===rgb[1])h=(rgb[2]-rgb[0])/d+2;else h=(rgb[0]-rgb[1])/d+4;}return {h:(h*60+360)%360,s:max?d/max:0,v:max};}

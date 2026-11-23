@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    },
+    "noEmit": true,
+    "skipLibCheck": false,
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "server.ts",
+    "i18n.ts",
+    "activity-source.ts",
+    "activity.ts",
+    "migrate.ts",
+    "hint.ts",
+    "plan.ts",
+    "metrics.ts",
+    "plan-service.ts",
+    "format.ts",
+    "app.tsx",
+    "components",
+    "lib"
+  ]
+}

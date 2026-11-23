@@ -1,0 +1,84 @@
+/* Правая панель треда въезжает ПОВЕРХ чата сдвигом (transform), ширина чата меняется один раз — после остановки.
+   Устройство bb: ряд [data-split-resize-grid-root] (@container, container-type: inline-size, overflow: clip)
+   содержит область чата [data-panel-id="thread-detail-timeline-panel"] (flex 100 / 50) и панель
+   [data-panel-id="thread-detail-secondary-panel"] (flex 0 / 50, overflow: clip, position: relative).
+   Внутри панели <aside aria-hidden> шириной var(--secondary-swipe-width, 50cqw): cqw считается от ряда,
+   а не от панели, поэтому ширина aside не зависит от ширины самой панели.
+   Состояние берём из атрибута data-panel-size, который bb ставит на сам элемент вместе с flex
+   (панель "0.0" = закрыта, чат "100.0" = панель закрыта). Без :has(): замер показал, что прежние правила
+   :has(> aside[aria-hidden]) / :has(~ … > aside[aria-hidden]) заставляли браузер пересчитывать стили всего
+   документа (~1800 элементов, ~100 мс) в момент нажатия.
+   Что сделано:
+   1. Открытие: ширина панели и чата меняется с задержкой на длительность въезда (transition-delay,
+      нулевая длительность). Пока панель ещё нулевой ширины, aside виден: у панели overflow: visible,
+      aside привязан к правому краю (right: 0) и выезжает из-за правого края ряда, ряд его обрезает
+      (горизонтального скролла нет). Ширина чата меняется одним пересчётом, когда панель уже стоит;
+      правый край панели совпадает с правым краем ряда до и после, поэтому панель не сдвигается.
+   2. Закрытие: aside уезжает вправо, ширина меняется после ухода (задержка на длительность ухода).
+   3. Первый показ (bb монтирует панель сразу открытой): @starting-style задаёт начальный кадр
+      (aside за правым краем, ширина панели 0), дальше та же механика.
+   4. В покое у aside transform: none и will-change: auto: панель не становится опорным блоком для
+      position: fixed (всплывающие окна внутри панели позиционируются от окна).
+   На 375 px панель — родной полноэкранный лист в body ([data-testid="secondary-panel-shelf"]), его не трогаем
+   (правила привязаны к data-panel-id). При prefers-reduced-motion правила не применяются: размеры и
+   поведение родные.
+   Откат: вернуть прежнюю версию файла (git) или убрать импорт panel-motion.css в app.tsx. */
+@media (prefers-reduced-motion: no-preference) {
+  :root {
+    --genidev-ui-tweaks-panel-in: 280ms;
+    --genidev-ui-tweaks-panel-out: 220ms;
+    --genidev-ui-tweaks-panel-ease-in: cubic-bezier(0.32, 0.72, 0, 1);
+    --genidev-ui-tweaks-panel-ease-out: cubic-bezier(0.4, 0, 0.6, 1);
+  }
+
+  /* ширина меняется мгновенно, но после движения; удвоенный атрибут = выше специфичность утилит tailwind bb */
+  [data-panel-id="thread-detail-secondary-panel"][data-panel-id],
+  [data-panel-id="thread-detail-timeline-panel"][data-panel-id] {
+    transition: flex-grow 0s linear var(--genidev-ui-tweaks-panel-in), flex-basis 0s linear var(--genidev-ui-tweaks-panel-in);
+  }
+  [data-panel-id="thread-detail-secondary-panel"][data-panel-id][data-panel-size="0.0"],
+  [data-panel-id="thread-detail-timeline-panel"][data-panel-id][data-panel-size="100.0"] {
+    transition: flex-grow 0s linear var(--genidev-ui-tweaks-panel-out), flex-basis 0s linear var(--genidev-ui-tweaks-panel-out);
+  }
+  /* перетаскивание разделителя (у него data-dragging только во время перетаскивания): ширина без задержки.
+     :has() здесь зависит только от data-dragging, который при открытии/закрытии не меняется. */
+  [data-resize-handle][data-dragging] ~ [data-panel-id="thread-detail-secondary-panel"][data-panel-id],
+  [data-panel-id="thread-detail-timeline-panel"][data-panel-id]:has(~ [data-resize-handle][data-dragging]) {
+    transition: none;
+  }
+  /* панель поверх чата и места виджета; aside виден и при нулевой ширине панели */
+  [data-panel-id="thread-detail-secondary-panel"][data-panel-id] {
+    overflow: visible !important;
+    z-index: 30;
+  }
+  @starting-style {
+    [data-panel-id="thread-detail-secondary-panel"][data-panel-id] {
+      flex-grow: 0 !important;
+    }
+  }
+
+  [data-panel-id="thread-detail-secondary-panel"] > aside[data-surface-tone] {
+    left: auto;
+    right: 0;
+    transform: none;
+    will-change: auto;
+    opacity: 1;
+    box-shadow: inset 1px 0 0 var(--border-seam);
+    transition:
+      transform var(--genidev-ui-tweaks-panel-in) var(--genidev-ui-tweaks-panel-ease-in),
+      opacity 120ms ease-out;
+  }
+  [data-panel-id="thread-detail-secondary-panel"] > aside[data-surface-tone][aria-hidden="true"] {
+    transform: translateX(100%);
+    opacity: 0;
+    transition:
+      transform var(--genidev-ui-tweaks-panel-out) var(--genidev-ui-tweaks-panel-ease-out),
+      opacity 160ms ease-in;
+  }
+  @starting-style {
+    [data-panel-id="thread-detail-secondary-panel"] > aside[data-surface-tone] {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+  }
+}

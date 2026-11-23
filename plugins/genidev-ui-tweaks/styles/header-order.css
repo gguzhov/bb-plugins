@@ -1,0 +1,53 @@
+/* Порядок и группы правой части шапки треда.
+   Устройство (bb): правый блок шапки (.pointer-events-auto.flex.shrink-0.gap-1) содержит
+   [data-thread-header-workflow-actions] (кнопки плагинов шапки, «Open in…» и git-кнопка вроде Commit,
+   каждая в своём span[data-thread-header-responsive-action]) и [data-thread-header-pane-actions]
+   (Thread context / булавка, Close pane, показ правой панели и пустая распорка после неё).
+   Оба блока делаем display:contents: все кнопки встают в один flex-ряд, порядок задаёт order:
+     1 — действия треда: кнопки плагинов шапки (например, стоимость треда) и булавка Thread context;
+     2 — приложение и git: «Open in…» со стрелкой выбора приложения, затем Commit и другие git-кнопки;
+     3 — показ правой панели, всегда у правого края (на том же месте, где у открытой панели крестик).
+   Внутри группы промежуток один — 4px (gap ряда), между группами 12px (4px gap + 8px отступ первой
+   кнопки группы), без разделителей.
+   Известное ограничение: порядок обхода клавишей Tab не меняется (order на него не влияет).
+   Откат: убрать импорт header-order.css в app.tsx. */
+[data-thread-header-workflow-actions],
+[data-thread-header-pane-actions] {
+  display: contents;
+}
+/* общий ряд: один промежуток 4px, никогда не переносится на вторую строку */
+[data-testid="app-page-header-content-row"] > div:has(> [data-thread-header-pane-actions]) {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+/* группа 1: действия треда */
+[data-thread-header-workflow-actions] > [data-bb-plugin],
+[data-thread-header-workflow-actions] > [data-bb-plugin] > *,
+[data-thread-header-pane-actions] > * {
+  order: 1;
+}
+/* группа 2: «Open in…», затем git-кнопки (порядок bb внутри группы сохраняется) */
+[data-thread-header-workflow-actions] > [data-thread-header-responsive-action] {
+  order: 2;
+}
+/* первая кнопка группы 2 отделена от группы 1 */
+[data-thread-header-workflow-actions] > [data-thread-header-responsive-action]:not([data-thread-header-responsive-action] ~ [data-thread-header-responsive-action]) {
+  margin-left: 8px;
+}
+/* группа 3: показ правой панели и распорка bb после неё — всегда справа */
+[data-thread-header-pane-actions] > button[aria-label^="Show right panel"],
+[data-thread-header-pane-actions] > button[aria-label^="Show right panel"] ~ *,
+[data-thread-header-pane-actions] > button[aria-label="Close pane"] {
+  order: 3;
+}
+/* отступ группы — только у первой кнопки группы 3 */
+[data-thread-header-pane-actions] > button[aria-label="Close pane"],
+[data-thread-header-pane-actions] > button[aria-label^="Show right panel"]:not(button[aria-label="Close pane"] ~ *) {
+  margin-left: 8px;
+}
+
+/* левая группа: название и меню «…» с тем же промежутком 4px (у bb gap-2 = 8px) */
+[data-testid="app-page-header-content-row"] div:has(> span > button[aria-label="Thread actions"]) {
+  gap: 4px;
+}

@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    },
+    "noEmit": true,
+    "skipLibCheck": false,
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "server.ts",
+    "app.tsx",
+    "components",
+    "lib",
+    "hooks",
+    "host.ts",
+    "host-contract.ts",
+    "agents.ts",
+    "git-stats.ts",
+    "agents.test.ts",
+    "git-stats.test.ts",
+    "widget.tsx",
+    "widget-state.ts",
+    "widget-state.test.ts",
+    "i18n.ts",
+    "i18n.test.ts"
+  ]
+}

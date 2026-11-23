@@ -1,0 +1,94 @@
+/* Навигатор сообщений у правого края чата.
+   Чей элемент: родной интерфейс bb (ядро, компонент оглавления треда), не плагин. Корень —
+   [data-thread-toc]; внутри button[aria-label="Thread table of contents"] с рисками (по одной на
+   сообщение) и, пока курсор над навигатором, всплывающая панель #thread-toc-panel-<id> с двумя
+   вкладками (button[aria-pressed]) и списком ul > li > button. Плагины liquid-glass и
+   beautiful-chat этот элемент не стилизуют. Только цвета из токенов темы (--foreground,
+   --state-hover/-active, --primary, --popover, --muted-foreground).
+   Недостижимо стилями: панель создаётся и удаляется React по наведению (mouseenter/leave), поэтому
+   анимацию ИСЧЕЗНОВЕНИЯ и задержку закрытия задать нельзя; сообщения владельца и агента показаны
+   разными вкладками, у одной вкладки риски одного вида; пути в сообщениях не имеют отдельной
+   разметки, моноширинный шрифт для них не включить. Мигания при проводке курсора нет и так:
+   панель вложена в [data-thread-toc], между полоской и панелью отступ pr-1 внутри того же узла. */
+
+/* появление: проявление + сдвиг от полоски 7px, 160 мс (анимируем внутренний блок, зона наведения не двигается) */
+@keyframes genidev-ui-tweaks-toc-in {
+  from { opacity: 0; transform: translateX(7px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-thread-toc] [id^="thread-toc-panel"] > div {
+    animation: genidev-ui-tweaks-toc-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  }
+}
+
+/* вкладки: активная контрастная и плотная, неактивная приглушена, одна высота (28px) */
+[data-thread-toc] [id^="thread-toc-panel"] button[aria-pressed] {
+  height: 28px;
+  font-weight: 500;
+}
+[data-thread-toc] [id^="thread-toc-panel"] button[aria-pressed="true"] {
+  background-color: var(--state-active);
+  color: var(--foreground);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+[data-thread-toc] [id^="thread-toc-panel"] button[aria-pressed="false"] {
+  color: var(--subtle-foreground);
+  font-weight: 400;
+}
+[data-thread-toc] [id^="thread-toc-panel"] button[aria-pressed="false"]:hover {
+  color: var(--foreground);
+}
+
+/* список: строки одной высоты, текст до двух строк (обрезка line-clamp-2 родная), нормальный интервал */
+[data-thread-toc] [id^="thread-toc-panel"] ul {
+  gap: 2px;
+  padding: 2px 0;
+}
+[data-thread-toc] [id^="thread-toc-panel"] ul > li > button {
+  height: 46px;
+  align-items: center;
+  box-shadow: inset 2px 0 0 transparent;
+}
+[data-thread-toc] [id^="thread-toc-panel"] ul > li > button > span {
+  line-height: 1.35;
+}
+/* текущее сообщение: фон + тонкая метка слева; у остальных подсветка при наведении родная */
+[data-thread-toc] [id^="thread-toc-panel"] ul > li > button[class~="bg-state-hover"] {
+  background-color: var(--state-active);
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+[data-thread-toc] [id^="thread-toc-panel"] ul > li > button:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--ring, var(--primary));
+}
+
+/* затухание верхней и нижней кромки списка (родные градиенты, показываются при прокрутке) — выше и плотнее */
+[data-thread-toc] [id^="thread-toc-panel"] .isolate > div.pointer-events-none.absolute {
+  height: 40px;
+}
+[data-thread-toc] [id^="thread-toc-panel"] .isolate > div.pointer-events-none.top-0 {
+  background-image: linear-gradient(to bottom, var(--popover) 10%, transparent);
+}
+[data-thread-toc] [id^="thread-toc-panel"] .isolate > div.pointer-events-none.bottom-0 {
+  background-image: linear-gradient(to top, var(--popover) 10%, transparent);
+}
+
+/* полоска рисок: текущая длиннее и ярче, остальные видимее, при наведении на риску подсветка */
+[data-thread-toc] > div > button > span > span {
+  background-color: color-mix(in oklab, var(--foreground) 16%, transparent);
+  transition: width 120ms ease, background-color 120ms ease;
+}
+[data-thread-toc] > div > button > span > span[class~="w-5"] {
+  width: 24px;
+  background-color: color-mix(in oklab, var(--foreground) 60%, transparent);
+}
+[data-thread-toc] > div > button:hover > span > span {
+  background-color: color-mix(in oklab, var(--foreground) 28%, transparent);
+}
+[data-thread-toc] > div > button:hover > span > span[class~="w-5"] {
+  background-color: var(--foreground);
+}
+[data-thread-toc] > div > button > span > span:hover {
+  width: 20px;
+  background-color: var(--foreground);
+}

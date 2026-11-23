@@ -1,0 +1,74 @@
+/* Телефон и узкое окно (уже 768px — мобильная раскладка bb): кнопки шапки треда и полосы правой
+   панели 44x44 со значком 20px, чтобы в них было удобно попадать пальцем; высота строки та же 48px,
+   центры на 24px, промежутки те же (4px в группе, 12px между группами — header-order.css).
+   Устройство (bb): кнопка сайдбара на телефоне стоит вне шапки, в фиксированном блоке слева
+   (div.fixed, отступ слева 10px); название начинается через отступ строки шапки (32px + px-4 шапки).
+   bb сам делает кнопки 36x36 только для сенсорного указателя (pointer: coarse); здесь — для любой
+   ширины уже 768px, чтобы вид не зависел от устройства.
+   «Open in…» и git-кнопки bb на телефоне сам убирает в меню «…» у названия.
+   Откат: убрать импорт header-touch.css в app.tsx. */
+@media (max-width: 767.98px) {
+  /* кнопка сайдбара: 44x44 у левого края (2px), центр на 24px */
+  div[class~="fixed"] > button[aria-label^="Toggle sidebar"] {
+    width: 44px;
+    height: 44px;
+  }
+  div[class~="fixed"]:has(> button[aria-label^="Toggle sidebar"]) {
+    padding-left: 2px;
+  }
+  /* название через 4px после кнопки сайдбара (2 + 44 + 4 = 50 = 16 шапки + 34 строки); справа ряд
+     кнопок доходит до 2px от края */
+  [data-testid="app-page-header-content-row"]:has(> div > [data-thread-header-pane-actions]) {
+    padding-left: 34px;
+    margin-right: -14px;
+    /* между названием с меню и правым рядом 12px, как на широком экране (у bb на телефоне gap-1) */
+    gap: 8px;
+  }
+  /* кнопки шапки */
+  [data-testid="app-page-header-content-row"] button[aria-label="Thread actions"],
+  [data-thread-header-pane-actions] > button,
+  [data-thread-header-workflow-actions] > [data-bb-plugin] button,
+  [data-thread-header-responsive-action] button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+  [data-testid="app-page-header-content-row"] > div:has(> [data-thread-header-pane-actions]) {
+    height: 44px;
+  }
+  [data-testid="app-page-header-content-row"] button[aria-label="Thread actions"] > svg,
+  [data-thread-header-pane-actions] > button > svg,
+  [data-thread-header-workflow-actions] > [data-bb-plugin] button > svg,
+  div[class~="fixed"] > button[aria-label^="Toggle sidebar"] > svg {
+    width: 20px;
+    height: 20px;
+  }
+  /* значки, нарисованные плагином через ::before (булавка, крестик) */
+  [data-thread-header-pane-actions] > button::before,
+  [data-testid="thread-secondary-panel-top-chrome"] button[aria-label^="Hide right panel"]::before {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  /* полоса правой панели (на телефоне — полноэкранный лист): те же 44x44 и значки 20px */
+  [data-testid="thread-secondary-panel-top-chrome"] {
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+  [data-testid="thread-secondary-panel-top-chrome"] [data-tab-pill],
+  [data-testid="thread-secondary-panel-top-chrome"] [data-tab-pill] > button:first-child,
+  [data-testid="thread-secondary-panel-top-chrome"] > div > button,
+  [data-testid="thread-secondary-panel-top-chrome"] [data-panel-new-tab],
+  [data-testid="thread-secondary-panel-top-chrome"] button:is([aria-label="Previous tab"], [aria-label="Next tab"]) {
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+  [data-testid="thread-secondary-panel-top-chrome"] [data-tab-pill] button > span:has(> [data-icon-root]),
+  [data-testid="thread-secondary-panel-top-chrome"] [data-tab-pill] [data-icon-root],
+  [data-testid="thread-secondary-panel-top-chrome"] button > svg {
+    width: 20px;
+    height: 20px;
+  }
+}

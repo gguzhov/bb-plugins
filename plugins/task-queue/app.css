@@ -1,0 +1,683 @@
+/* Task Queue: the plan card above the composer. Colours come from bb's theme
+   variables only; the look matches background-peek's card right under it. */
+
+/* Banners of different plugins stack in plugin order (background-peek comes
+   first). The plan card is a grid item of the composer's banner grid (its
+   plugin root is display: contents), so `order` lifts it above the others:
+   the plan on top, background agents under it, next to the prompt box. In
+   Liquid Glass's "stack" deck the deck sets the order itself and wins. */
+[data-app-composer] .tqueue-card {
+  order: -1;
+}
+
+.tqueue-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background-color: var(--card, var(--background));
+  color: var(--foreground);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* ── Pills ─────────────────────────────────────────────────────────────── */
+.tqueue-pill {
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 20px;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tqueue-pill[data-tone="ok"] {
+  background-color: color-mix(in oklch, var(--success, #3fb950) 18%, transparent);
+  color: var(--success-text, var(--success, #3fb950));
+}
+.tqueue-pill[data-tone="warn"] {
+  background-color: color-mix(in oklch, var(--warning, #d29922) 18%, transparent);
+  color: var(--warning-text, var(--warning, #d29922));
+}
+.tqueue-pill[data-tone="bad"] {
+  background-color: color-mix(in oklch, var(--destructive, #e5484d) 18%, transparent);
+  color: var(--destructive-text, var(--destructive, #e5484d));
+}
+.tqueue-pill[data-tone="accent"] {
+  background-color: color-mix(in oklch, var(--primary) 18%, transparent);
+  color: var(--primary);
+}
+.tqueue-pill-label {
+  margin-right: 4px;
+  font-size: 10px;
+  opacity: 0.75;
+}
+.tqueue-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background-color: var(--success, #3fb950);
+}
+.tqueue-dot[data-tone="paused"] {
+  background-color: var(--muted-foreground);
+}
+.tqueue-dot[data-tone="bad"] {
+  background-color: var(--destructive, #e5484d);
+}
+
+/* ── Header: one line ──────────────────────────────────────────────────── */
+.tqueue-header {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 0;
+  background-color: color-mix(in oklch, var(--background) 70%, transparent);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  container-type: inline-size;
+  transition: background-color 150ms ease;
+}
+.tqueue-header:hover {
+  background-color: color-mix(in oklch, var(--background) 82%, transparent);
+}
+.tqueue-header:focus-visible,
+.tqueue-group-head:focus-visible,
+.tqueue-more-button:focus-visible {
+  outline: 1px solid color-mix(in oklch, var(--foreground) 40%, transparent);
+  outline-offset: -1px;
+}
+.tqueue-header-title {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.tqueue-chevron {
+  flex: 0 0 auto;
+  color: var(--muted-foreground);
+  transition: transform 220ms cubic-bezier(0.2, 0, 0, 1);
+}
+[data-tqueue-open="true"] .tqueue-chevron {
+  transform: rotate(180deg);
+}
+.tqueue-bar {
+  position: relative;
+  display: block;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: var(--muted);
+}
+.tqueue-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--primary);
+  transition: width 300ms cubic-bezier(0.2, 0, 0, 1);
+}
+.tqueue-bar[data-state="needs_input"] .tqueue-bar-fill {
+  background-color: var(--warning, #d29922);
+}
+.tqueue-bar[data-state="error"] .tqueue-bar-fill {
+  background-color: var(--destructive, #e5484d);
+}
+.tqueue-bar[data-state="done"] .tqueue-bar-fill {
+  background-color: var(--success, #3fb950);
+}
+@container (max-width: 460px) {
+  .tqueue-opt-bar {
+    display: none;
+  }
+}
+@container (max-width: 300px) {
+  .tqueue-header .tqueue-opt-time {
+    display: none;
+  }
+}
+
+/* Opening animates the row track from 0fr to 1fr. */
+.tqueue-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms cubic-bezier(0.2, 0, 0, 1);
+}
+[data-tqueue-open="true"] > .tqueue-reveal {
+  grid-template-rows: 1fr;
+}
+.tqueue-clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Body: padded, capped at 45% of the window, scrolls inside ─────────── */
+.tqueue-scroller {
+  position: relative;
+  border-top: 1px solid var(--border);
+  background-color: var(--popover, var(--background));
+}
+.tqueue-scroller::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 28px;
+  background: linear-gradient(to bottom, transparent, var(--popover, var(--background)));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.tqueue-scroller[data-fade]::after {
+  opacity: 1;
+}
+.tqueue-body {
+  box-sizing: border-box;
+  max-height: 45vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 14px;
+  container-type: inline-size;
+}
+
+/* Plan row */
+.tqueue-plan-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+.tqueue-row-title {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.tqueue-ticks {
+  display: flex;
+  height: 4px;
+  margin: 8px 0 10px;
+  gap: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+}
+.tqueue-tick {
+  flex: 1 1 0;
+  min-width: 2px;
+  border-radius: 999px;
+  background-color: var(--muted);
+}
+.tqueue-tick[data-status="done"] {
+  background-color: var(--success, #3fb950);
+}
+.tqueue-tick[data-status="review"] {
+  background-color: var(--warning, #d29922);
+}
+.tqueue-tick[data-status="active"] {
+  background-color: var(--primary);
+}
+.tqueue-tick[data-status="error"] {
+  background-color: var(--destructive, #e5484d);
+}
+.tqueue-ticks[data-solid] {
+  display: block;
+  background-color: var(--muted);
+}
+.tqueue-ticks-fill {
+  display: block;
+  height: 100%;
+  background-color: var(--success, #3fb950);
+}
+/* Figures under the plan row: four pills at most, two on a phone. */
+.tqueue-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+@container (max-width: 360px) {
+  .tqueue-metric-opt {
+    display: none;
+  }
+}
+.tqueue-plan-note {
+  margin: 0 0 8px;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.tqueue-plan-note[data-state="needs_input"] {
+  color: var(--warning-text, var(--warning, #d29922));
+}
+.tqueue-plan-note[data-state="error"] {
+  color: var(--destructive-text, var(--destructive, #e5484d));
+}
+
+/* ── Epics and tickets ─────────────────────────────────────────────────── */
+.tqueue-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tqueue-group-head {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 24px;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.tqueue-group-name {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tqueue-group-chevron {
+  color: var(--muted-foreground);
+  transition: transform 150ms ease;
+}
+.tqueue-group-head[aria-expanded="true"] .tqueue-group-chevron {
+  transform: rotate(90deg);
+}
+
+/* One grid per epic: icon | who | title | state pills. Rows share the columns
+   (subgrid), so the "who" column is as wide as its widest pill and every
+   title starts on the same line. The title column is the one that shrinks. */
+.tqueue-tickets {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  row-gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tqueue-tickets[data-badges] {
+  grid-template-columns: auto max-content minmax(0, 1fr) auto;
+}
+.tqueue-group-head + .tqueue-tickets {
+  margin-top: 2px;
+}
+.tqueue-ticket {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  min-width: 0;
+  min-height: 24px;
+  align-items: center;
+  column-gap: 8px;
+  padding: 0 6px;
+  border-radius: 6px;
+}
+/* No grey fill for tickets in work: only hover and focus light a row up. */
+.tqueue-ticket-icon {
+  color: var(--muted-foreground);
+}
+.tqueue-ticket[data-status="pending"] .tqueue-ticket-icon {
+  opacity: 0.5;
+}
+.tqueue-ticket[data-status="done"] .tqueue-ticket-icon {
+  color: var(--success, #3fb950);
+}
+.tqueue-ticket[data-status="active"] .tqueue-ticket-icon {
+  color: var(--primary);
+}
+.tqueue-ticket[data-status="review"] .tqueue-ticket-icon {
+  color: var(--warning, #d29922);
+}
+.tqueue-ticket[data-status="error"] .tqueue-ticket-icon {
+  color: var(--destructive, #e5484d);
+}
+/* Who does the ticket, in full ("Lead: Fable 5.2"), never cut; without an
+   owner, the ticket's code. Every pill in an epic is as wide as the column. */
+.tqueue-who {
+  display: inline-flex;
+  box-sizing: border-box;
+  min-width: 34px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  justify-self: stretch;
+  padding: 0 7px;
+  border-radius: 999px;
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.tqueue-who[data-owner] {
+  font-family: inherit;
+}
+.tqueue-who[data-empty] {
+  background: none;
+}
+.tqueue-ticket-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tqueue-ticket-pills {
+  display: inline-flex;
+  gap: 4px;
+  justify-self: end;
+}
+.tqueue-ticket[data-status="pending"] .tqueue-ticket-title,
+.tqueue-ticket[data-status="done"] .tqueue-ticket-title {
+  color: var(--muted-foreground);
+}
+.tqueue-ticket[data-status="skipped"] .tqueue-ticket-title {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+.tqueue-ticket[data-current] .tqueue-ticket-title {
+  font-weight: 500;
+}
+.tqueue-more {
+  grid-column: 1 / -1;
+  padding-left: 6px;
+}
+.tqueue-more-button {
+  min-height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.tqueue-more-button:hover {
+  background-color: var(--muted);
+}
+
+/* Rows are focusable (Tab) so their hint opens from the keyboard too. */
+.tqueue-ticket:focus-visible,
+.tqueue-pill[tabindex]:focus-visible,
+.tqueue-ticks:focus-visible {
+  outline: 1px solid color-mix(in oklch, var(--foreground) 40%, transparent);
+  outline-offset: 1px;
+}
+.tqueue-ticket[data-expandable] {
+  cursor: pointer;
+}
+.tqueue-ticket:hover,
+.tqueue-ticket[data-expandable]:hover {
+  background-color: color-mix(in oklch, var(--muted) 70%, var(--foreground) 6%);
+}
+.tqueue-ticket-chevron {
+  color: var(--muted-foreground);
+  transition: transform 150ms ease;
+}
+.tqueue-ticket[data-open] .tqueue-ticket-chevron {
+  transform: rotate(180deg);
+}
+.tqueue-ticket-pills {
+  align-items: center;
+}
+
+/* The agent on a ticket in work and its time there: «Неон · 12 мин»; the lead alone: «12 мин». Never cut. */
+.tqueue-agent-pill {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tqueue-agent-names {
+  font-weight: 500;
+  color: var(--foreground);
+}
+/* Phones: the name only; the time is in the hint and the opened row. The model
+   pill on the left shrinks to its first word ("Opus"); the full one is in the hint. */
+.tqueue-who-short {
+  display: none;
+}
+@media (max-width: 430px) {
+  .tqueue-agent-time:not(.tqueue-agent-alone) {
+    display: none;
+  }
+  .tqueue-who-full {
+    display: none;
+  }
+  .tqueue-who-short {
+    display: inline;
+  }
+}
+
+/* What the agent on a ticket does now: under the ticket's row. */
+.tqueue-ticket-detail {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 2px 0 6px 26px;
+}
+.tqueue-agent + .tqueue-agent {
+  margin-top: 8px;
+}
+.tqueue-agent-name {
+  margin: 0 0 2px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tqueue-agent-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tqueue-agent-steps li {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--muted-foreground);
+}
+.tqueue-agent-label {
+  flex: 0 0 auto;
+  font-weight: 500;
+  color: var(--foreground);
+}
+.tqueue-agent-steps code,
+.tqueue-agent-cmd,
+.tqueue-agent-out {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+}
+.tqueue-agent-steps code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tqueue-agent-cmd,
+.tqueue-agent-out {
+  margin: 0;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tqueue-agent-out {
+  margin-top: 4px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+}
+.tqueue-agent-note,
+.tqueue-agent-meta {
+  margin: 0;
+  color: var(--muted-foreground);
+}
+.tqueue-agent-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The hint: bb's tooltip, one line per thought. */
+.tqueue-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.4;
+}
+.tqueue-tip-muted {
+  opacity: 0.75;
+}
+
+/* Background work tied to no ticket, at the bottom of the open card. */
+.tqueue-other {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
+}
+.tqueue-other-head {
+  margin: 0 0 2px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Phones: full-height tap targets for the rows that open something. */
+@media (max-width: 767px), (pointer: coarse) {
+  .tqueue-header,
+  .tqueue-group-head,
+  .tqueue-more-button,
+  .tqueue-ticket {
+    min-height: 44px;
+  }
+  /* Pills that open a hint get a 44 x 44 touch area around the painted pill;
+     the rows around them are spaced so those areas do not overlap. */
+  .tqueue-pill[tabindex] {
+    position: relative;
+  }
+  .tqueue-pill[tabindex]::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+  .tqueue-plan-head {
+    min-height: 44px;
+  }
+  .tqueue-metrics {
+    margin-top: 0;
+    gap: 4px 6px;
+  }
+  .tqueue-metrics .tqueue-pill {
+    margin-block: 12px;
+  }
+  /* The ticks bar: a 44px tall touch area, the marks stay 4px thin. */
+  .tqueue-ticks:not([data-solid]) {
+    height: 44px;
+    margin: 0;
+    align-items: center;
+    border-radius: 0;
+  }
+  .tqueue-ticks:not([data-solid]) .tqueue-tick {
+    height: 4px;
+  }
+}
+/* Phones: a row with an agent or command pill drops the state word (the pill
+   already says it is running; the hint keeps the state), so titles fit. */
+@media (max-width: 430px) {
+  .tqueue-ticket-pills .tqueue-agent-pill + .tqueue-pill {
+    display: none;
+  }
+}
+
+/* ── bb's own background card ───────────────────────────────────────────────
+   While this card lists the thread's background agents and commands
+   (data-tqueue-activity), bb's own "Background ..." card above the prompt box
+   goes: the same work would show twice, and Liquid Glass would draw it as a
+   pill over this card. Without the attribute (nothing read yet, or the read
+   failed) bb's card stays. app.tsx also marks it as not a card for the deck. */
+[data-app-composer]:has([data-tqueue-card][data-tqueue-activity]) section[aria-label^="Background"]:not([data-tqueue-card]):not([data-bgpeek-card]) {
+  display: none !important;
+}
+
+/* ── Liquid Glass deck ───────────────────────────────────────────────────────
+   In the "stack" deck this card opens by its own row and at its own pace, so
+   the deck's effects for a tucked card (clip to 38px, lift and grow on hover,
+   dim while another card is up) are off. The deck sits 8px above the prompt
+   box and its rail goes (a companion card of the same author sets the same
+   rules, so either plugin alone keeps them). */
+[data-lg-dock-stack] > .grid {
+  margin-bottom: 8px !important;
+}
+.lg-deck-rail {
+  display: none !important;
+}
+[data-lg-dock-stack] [data-tqueue-card][data-lg-dock-leaf] {
+  max-height: none !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  transform: none !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+  cursor: default;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tqueue-header,
+  .tqueue-reveal,
+  .tqueue-chevron,
+  .tqueue-group-chevron,
+  .tqueue-ticket-chevron,
+  .tqueue-scroller::after,
+  .tqueue-bar-fill {
+    transition: none;
+  }
+  .tqueue-card .animate-shine,
+  .tqueue-tip,
+  .tqueue-dot {
+    animation: none !important;
+  }
+}
+
+/* ── Phones: a full-width card, not a liquid-glass pill ─────────────────────
+   In "pills" mode liquid-glass hides every card and draws a pill row; this
+   card opts out of its deck (data-lg-dock-ui on its stack item, set by
+   deck-opt-out.ts). When every other card is a pill, liquid-glass hides the
+   whole stack (data-lg-dock-empty): keep it shown while it holds this card.
+   :has() here depends only on this card being mounted. */
+[data-lg-dock-collapsed] > .grid[data-lg-dock-empty]:has([data-tqueue-card]) {
+  display: grid !important;
+}

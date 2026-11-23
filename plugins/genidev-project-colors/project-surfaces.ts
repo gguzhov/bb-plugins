@@ -1,0 +1,14 @@
+import {watchDocument} from './scoped-observer';
+export function projectSurfaces(signal:AbortSignal){
+ let host:HTMLDivElement|null=null;let key='';let frame=0;let menuProject:string|null=null;
+ const scan=()=>{frame=0;const match=location.pathname.match(/^\/settings\/projects\/([^/]+)\/?$/);const heading=document.querySelector('main h1');const menu=[...document.querySelectorAll<HTMLElement>('[role=menu]')].find(m=>[...m.querySelectorAll('[role=menuitem]')].some(i=>i.textContent?.trim()==='Project settings'));const id=menu&&menuProject?menuProject:match?.[1];const inMenu=!!(menu&&menuProject);const target=inMenu?menu:heading;
+  if(host&&(!host.isConnected||key!==id||!!host.closest('[role=menu]')!==inMenu)){host.remove();host=null;key='';document.dispatchEvent(new CustomEvent('pc:surface',{detail:null}));}
+  if(id&&target&&!host){host=document.createElement('div');host.className=inMenu?'pc-menu-surface pc-settings':'pc-project-surface pc-settings';key=id;if(inMenu){const item=[...menu!.querySelectorAll<HTMLElement>('[role=menuitem]')].find(i=>i.textContent?.trim()==='Project settings');item?.before(host);document.dispatchEvent(new CustomEvent('pc:surface',{detail:{id,host}}));return;}const header=heading!.closest('main');if(!header)return;let anchor:Element=heading!;while(anchor.parentElement&&anchor.parentElement!==header&&!anchor.parentElement.querySelector('h2'))anchor=anchor.parentElement;anchor.after(host);document.dispatchEvent(new CustomEvent('pc:surface',{detail:{id,host}}));}
+ };
+ const schedule=()=>{if(!frame)frame=requestAnimationFrame(scan);};
+ const click=(e:Event)=>{const b=(e.target as Element)?.closest?.('button,[role="menuitem"]');const text=b?.textContent?.trim();const label=b?.getAttribute('aria-label');if(['Add a project','Add project','New project'].includes(text??'')||['Add a project','Add project','New project'].includes(label??''))document.dispatchEvent(new Event('pc:creating'));};
+ const capture=(e:Event)=>{const target=e.target as Element;const trigger=target.closest?.('[aria-haspopup=menu]');const project=trigger?.closest<HTMLElement>('[data-sidebar-project-id]');if(project)menuProject=project.dataset.sidebarProjectId??null;};document.addEventListener('pointerdown',capture,true);document.addEventListener('keydown',capture,true);
+ const ready=()=>{if(host)document.dispatchEvent(new CustomEvent('pc:surface',{detail:{id:key,host}}));else schedule();};
+ const stopWatching=watchDocument(schedule,signal);document.addEventListener('click',click,true);document.addEventListener('pc:surfaces-ready',ready);schedule();
+ const clean=()=>{document.removeEventListener('pointerdown',capture,true);document.removeEventListener('keydown',capture,true);stopWatching();cancelAnimationFrame(frame);host?.remove();document.removeEventListener('click',click,true);document.removeEventListener('pc:surfaces-ready',ready);};signal.addEventListener('abort',clean,{once:true});return clean;
+}

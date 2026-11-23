@@ -1,0 +1,64 @@
+/* Поправки поверх чужих тем (beautiful-chat, chatgpt-skin), чтобы не править их файлы в кеше bb:
+   при обновлении плагина правки в кеше пропадают, а эти правила остаются.
+   Узкие `:has()`: слева всегда конкретный атрибут кнопки или строки, без `:root:has` и `body:has`. */
+
+/* 1. Кнопка отправки с подписью («New thread» при передаче треда). Темы тянут её к 28x28 и режут подпись.
+   Кнопка без подписи (стрелка) остаётся 28x28 как у тем. */
+.bb-app-shell [data-promptbox-action-row] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bb-app-shell [data-promptbox-submit-group]:has([data-promptbox-submit-label]),
+.bb-app-shell [data-promptbox-send-menu]:has([data-promptbox-submit-label]) {
+  min-width: 0 !important;
+  max-width: 100%;
+  flex-shrink: 1 !important;
+}
+
+.bb-app-shell [data-promptbox] [data-promptbox-submit-action]:has([data-promptbox-submit-label]) {
+  width: auto !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: 1.75rem !important;
+  min-height: 1.75rem !important;
+  padding: 0 0.625rem !important;
+  gap: 0.375rem !important;
+  overflow: hidden !important;
+  flex-shrink: 1 !important;
+}
+
+.bb-app-shell [data-promptbox-submit-label] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 2. Строка треда в сайдбаре: длинное название обрезается многоточием перед значком статуса,
+   а не уезжает под него. Значок занимает фиксированное место в конце строки. */
+.bb-app-shell [data-sidebar-rename-row] > span.flex:not([data-sidebar-thread-trailing]) {
+  min-width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+}
+
+.bb-app-shell [data-sidebar-rename-row] [data-sidebar-thread-trailing] {
+  flex: none;
+}
+
+.bb-app-shell [data-sidebar-rename-row] .bb-thread-title {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 3. Правый верхний угол поля ввода. Liquid Glass ставит туда кнопку, которая складывает карточки над полем
+   в стопку и в точки. Кнопка непонятная и стоит ровно там, где плагин подсказок рисует «Tab / →»,
+   поэтому подсказка уезжала под неё. Кнопку убираем, сворачивание поля (шеврон bb) остаётся. */
+.bb-app-shell [data-promptbox] [data-lg-dock-glyph] {
+  display: none !important;
+}

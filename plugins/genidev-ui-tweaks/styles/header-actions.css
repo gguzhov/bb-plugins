@@ -1,0 +1,78 @@
+/* Кнопки шапки треда: одна коробка 28x28, значок 16px, вертикальные центры на одной линии.
+   Устройство (bb): кнопки-значки шапки уже 28x28 со значком 16px. Различались: «Open in…» (две половины
+   с рамкой border-border/70 — рамка родная у bb; цвет рамки и фон при наведении дополнительно задаёт
+   плагин chatgpt-skin), кнопка стоимости треда от стороннего плагина burn (капсула 24px) и
+   git-кнопка с подписью (Commit). Порядок и промежутки — в header-order.css.
+   «Open in…» — одна составная кнопка: значок приложения 28x28 и стрелка выбора приложения 20x28 вплотную,
+   общая рамка и фон только при наведении. Недостижимо стилями: значок приложения — растровая картинка
+   (img 16x16), её рисунок не меняется.
+   Откат: убрать импорт header-actions.css в app.tsx. */
+
+/* одна высота и вертикальный центр у всего, что стоит в правом ряду */
+[data-testid="app-page-header-content-row"] > div:has(> [data-thread-header-pane-actions]) {
+  align-items: center;
+  height: 28px;
+}
+[data-thread-header-pane-actions] > button,
+[data-thread-header-responsive-action] button,
+[data-thread-header-workflow-actions] > [data-bb-plugin] button {
+  height: 28px;
+  min-height: 28px;
+}
+[data-thread-header-pane-actions] > button {
+  width: 28px;
+  min-width: 28px;
+}
+[data-thread-header-pane-actions] > button > svg {
+  width: 16px;
+  height: 16px;
+}
+/* кнопка стоимости треда (плагин burn): та же высота 28, капсула по центру ряда */
+[data-thread-header-workflow-actions] > [data-bb-plugin] button[data-burn-chip-button] {
+  box-sizing: border-box;
+  min-width: 28px;
+}
+
+/* «Open in…»: без рамки в покое; значок приложения 28x28, стрелка 20x28 */
+[data-thread-header-responsive-action] button[aria-label^="Open workspace in"],
+[data-thread-header-responsive-action] button[aria-label^="Choose another app"] {
+  border-width: 0;
+  padding: 0;
+}
+[data-thread-header-responsive-action] button[aria-label^="Open workspace in"] {
+  width: 28px;
+}
+[data-thread-header-responsive-action] button[aria-label^="Choose another app"] {
+  width: 20px;
+}
+/* рамка и фон — на всю пару при наведении, фокусе и открытом меню (outline не меняет размеров) */
+[data-thread-header-responsive-action] div:has(> button[aria-label^="Open workspace in"]) {
+  border-radius: 12.5px;
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+  transition: outline-color 120ms ease;
+}
+[data-thread-header-responsive-action] div:has(> button[aria-label^="Open workspace in"]):hover,
+[data-thread-header-responsive-action] div:has(> button[aria-label^="Open workspace in"]):focus-within,
+[data-thread-header-responsive-action] div:has(> button[aria-label^="Open workspace in"]):has([data-state="open"]) {
+  outline-color: color-mix(in oklab, var(--border) 100%, var(--foreground) 6%);
+}
+[data-thread-header-responsive-action] div:has(> button[aria-label^="Open workspace in"]):hover,
+[data-thread-header-responsive-action] div:has(> button[aria-label^="Open workspace in"]):focus-within {
+  background-color: var(--state-hover);
+}
+/* фон пары один, у половин собственный фон при наведении не нужен (иначе двойная заливка) */
+/* плагин chatgpt-skin красит такие кнопки (.bb-app-shell button.border-border/70.bg-transparent) через !important:
+   рамка var(--border) и фон при наведении; поэтому здесь !important и повышенная специфичность (повтор атрибута) */
+[data-thread-header-responsive-action][data-thread-header-responsive-action][data-thread-header-responsive-action][data-thread-header-responsive-action][data-thread-header-responsive-action] div:has(> button[aria-label^="Open workspace in"]) > button:hover,
+[data-thread-header-responsive-action][data-thread-header-responsive-action][data-thread-header-responsive-action][data-thread-header-responsive-action][data-thread-header-responsive-action] div:has(> button[aria-label^="Open workspace in"]) > span > button:hover {
+  background-color: transparent !important;
+}
+[data-thread-header-responsive-action] div:has(> button[aria-label^="Open workspace in"]) button:hover {
+  color: var(--muted-foreground);
+}
+/* у span-обёрток bb лишний внутренний промежуток (gap-1.5) при одной кнопке — убираем, чтобы ширина
+   «Open in…» была ровно 48px */
+[data-thread-header-responsive-action] > span {
+  gap: 0;
+}

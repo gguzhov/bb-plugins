@@ -1,0 +1,42 @@
+/* Верхняя полоса правой панели в одну линию с шапкой треда: та же высота строки (48px, переменная bb
+   --bb-app-chrome-row-height), кнопки 28x28, значки 16px, промежуток 4px, вертикальные центры на 24px.
+   Устройство (bb): [data-testid="thread-secondary-panel-top-chrome"] = ряд вкладок
+   ([data-sidebar-split-tab-group], кнопки-вкладки [data-tab-pill] и «+» [data-panel-new-tab]) + правая
+   группа (развернуть/вернуть, закрыть). У bb значки вкладок и «+» 14px, «развернуть» 13px — в шапке
+   треда 16px; кнопки и промежутки уже совпадают, правила их закрепляют.
+   Крестик закрытия стоит последним в правой группе, у того же правого отступа, что и кнопка показа
+   панели в шапке треда (см. panel-close.css), поэтому при открытии панели крестик встаёт ровно туда,
+   где была кнопка.
+   Откат: убрать импорт panel-bar.css в app.tsx. */
+[data-testid="thread-secondary-panel-top-chrome"] {
+  height: var(--bb-app-chrome-row-height, 48px);
+  align-items: center;
+}
+[data-testid="thread-secondary-panel-top-chrome"] > div {
+  gap: 4px;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+[data-testid="thread-secondary-panel-top-chrome"] [data-tab-pill],
+[data-testid="thread-secondary-panel-top-chrome"] > div > button {
+  height: 28px;
+  min-height: 28px;
+}
+[data-testid="thread-secondary-panel-top-chrome"] > div > button {
+  width: 28px;
+  min-width: 28px;
+}
+/* значки 16px: вкладки (bb уменьшает их до 14px через [&_[data-icon-root]]:size-3.5), «+», развернуть */
+[data-testid="thread-secondary-panel-top-chrome"] [data-tab-pill] [data-icon-root],
+[data-testid="thread-secondary-panel-top-chrome"] [data-tab-pill] button > span:has(> [data-icon-root]),
+[data-testid="thread-secondary-panel-top-chrome"] > div > button > svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* стрелки «Previous tab» / «Next tab» (bb показывает их на узкой панели): когда обе неактивны —
+   открыта одна вкладка-файл и листать нечего — они только занимают место и обрезают название вкладки.
+   Прячем только пару целиком и только пока обе неактивны: если листать есть куда, обе видны. */
+[data-testid="thread-secondary-panel-top-chrome"] div:has(> button[aria-label="Previous tab"]:disabled):has(> button[aria-label="Next tab"]:disabled) > button:is([aria-label="Previous tab"], [aria-label="Next tab"]) {
+  display: none;
+}

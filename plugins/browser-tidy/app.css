@@ -1,0 +1,4 @@
+/* Hide the "···" Browser menu in BB Browser tabs. */
+button[aria-label="Browser menu"] {
+  display: none !important;
+}

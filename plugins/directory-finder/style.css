@@ -1,0 +1,7 @@
+.df-actions{display:flex;align-items:center;gap:6px;min-width:0;}
+.df-directory{min-width:0;text-decoration:underline;text-underline-offset:3px;cursor:pointer;}.df-directory:hover{color:var(--foreground)}.df-directory:focus-visible{outline:2px solid var(--ring);outline-offset:2px;}
+/* A long path is cut at its start, so the last folder stays readable. */
+.df-directory>span{direction:rtl;text-align:right;}.df-directory>span>span{direction:ltr;unicode-bidi:embed;}
+.df-copy{flex-shrink:0;padding:4px;}.df-copy>span{display:none}.df-copy>svg{opacity:1!important;}.df-copy:focus-visible{outline:2px solid var(--ring);outline-offset:2px;}
+/* Phones: both buttons are at least 44x44. */
+@media (max-width:767px) and (pointer:coarse){.df-directory{min-height:44px;}.df-copy{min-width:44px;min-height:44px;justify-content:center;}}

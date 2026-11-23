@@ -1,0 +1,27 @@
+{
+  "name": "bb-plugin-browser-tidy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "bb": ">=0.49",
+    "bbPluginSdk": ">=0.6.132"
+  },
+  "bb": {
+    "name": "Browser tidy",
+    "description": "Hides the Browser menu (···) in BB Browser tabs.",
+    "branding": {
+      "icon": "EyeOff"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx"
+  },
+  "scripts": {
+    "build": "bb plugin build"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.132",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

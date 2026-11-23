@@ -1,0 +1,22 @@
+{
+  "name": "bb-plugin-chat-tables",
+  "version": "0.1.1",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.49",
+    "bbPluginSdk": ">=0.6.132"
+  },
+  "bb": {
+    "name": "Chat table containment",
+    "description": "Keeps Markdown tables inside the chat column with local horizontal scrolling.",
+    "branding": {
+      "icon": "FileText"
+    },
+    "server": "./server.ts",
+    "app": "./app.ts",
+    "skills": []
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.132"
+  }
+}
