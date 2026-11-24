@@ -25,3 +25,14 @@ test("the package declares no other plugin as a requirement", () => {
   const pkg = JSON.parse(read("../package.json"));
   assert.doesNotMatch(JSON.stringify(pkg), /background-peek/i);
 });
+
+test("bb's Child threads card goes while the plan card is up, but not while a child asks a question", () => {
+  const css = read("../app.css");
+  const rule = css.match(/\[data-app-composer\]:has\(\[data-tqueue-card\]\) section\[aria-label="Child threads"\][^{]*\{[^}]*\}/);
+  assert.ok(rule, "rule present");
+  assert.match(rule[0], /:not\(:has\(\[data-child-question-row\]\)\)/);
+  assert.match(rule[0], /display: none !important/);
+  const app = read("../app.tsx");
+  assert.match(app, /useChildCardAside\(card, plan !== null\)/);
+  assert.match(app, /CHILD_QUESTION = "\[data-child-question-row\]"/);
+});

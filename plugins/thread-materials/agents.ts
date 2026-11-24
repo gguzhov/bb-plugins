@@ -223,6 +223,27 @@ export function sortExecutors(list: Executor[]): Executor[] {
  return [...running, ...rest];
 }
 
+/** How many executors are in each state. Stopped is counted apart: it is neither done nor an error. */
+export type ExecutorCounts = Record<ExecutorState, number> & { total: number };
+export function executorCounts(list: readonly Pick<Executor, "state">[]): ExecutorCounts {
+ const c: ExecutorCounts = { running: 0, done: 0, error: 0, stopped: 0, total: 0 };
+ for (const x of list) { if (x.state in c) c[x.state]++; c.total++; }
+ return c;
+}
+
+export type SummaryPart = { state: ExecutorState; text: string };
+/**
+ * The one-line tally over the executors. `short` (collapsed chip): "2 в работе", "5 готово"; `long` (top of the open section): "В работе 2", "Готово 5".
+ * Parts with a zero are left out; the error part is flagged by its state so the UI can colour it.
+ */
+export function executorSummary(counts: ExecutorCounts, lang: Lang = "ru", form: "short" | "long" = "short"): SummaryPart[] {
+ const t = dict(lang);
+ const f = form === "short" ? t.summaryShort : t.summaryLong;
+ const out: SummaryPart[] = [];
+ for (const state of ["running", "done", "error", "stopped"] as const) if (counts[state] > 0) out.push({ state, text: f[state](counts[state]) });
+ return out;
+}
+
 // ---------- presentation ----------
 
 /** The one place model ids and launch aliases become human names. */

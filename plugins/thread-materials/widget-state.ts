@@ -3,6 +3,10 @@
 export type SectionId = "git" | "agents" | "result" | "source";
 export type WidgetState = { open: SectionId | null };
 export const SECTIONS: readonly SectionId[] = ["git", "agents", "result", "source"];
+export function isSectionId(value: unknown): value is SectionId {
+ return SECTIONS.some(section => section === value);
+}
+
 /** Rows an open section shows before the "N more" line: fits the card without an inner scrollbar. */
 export const WIDGET_ROWS = 5;
 
@@ -15,7 +19,7 @@ export function readState(store: Store | null | undefined, threadId: string, fal
   const raw = store?.getItem(KEY + threadId);
   if (raw == null) return fallback;
   const v = JSON.parse(raw) as { open?: unknown };
-  return { open: SECTIONS.includes(v?.open as SectionId) ? (v.open as SectionId) : null };
+  return { open: isSectionId(v?.open) ? v.open : null };
  } catch { return fallback; }
 }
 

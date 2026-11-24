@@ -10,4 +10,4 @@ export function defaultColor(name: string) {
   let n=0;for(const ch of normalized)n=(n*31+ch.charCodeAt(0))>>>0;
   return PALETTE[n%PALETTE.length].hex;
 }
-export interface ProjectColor {id:string;name:string;color:string|null}
+export interface ProjectColor {id:string;name:string;color:string|null;chosenAt:number|null}

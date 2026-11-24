@@ -1,7 +1,8 @@
 import {createPortal} from 'react-dom';
 import {watchMenuExit} from './menu-lifecycle';
 import {projectSurfaces} from './project-surfaces';
-import {useCallback,useEffect,useRef,useState} from 'react';
+import {useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
+const FLY_GAP=4,FLY_EDGE=8;
 import {experimental_Icon as Icon,definePluginApp,useRpc,useRealtime,experimental_useSidebarThreads} from '@get-bb/plugin-sdk/app';
 import type {rpcContract} from './server';
 import {PALETTE,type ProjectColor} from './palette';
@@ -25,13 +26,33 @@ function Colors(){
  if(created&&project)return <div className="pc-created-backdrop"><div className="pc-created pc-settings" role="dialog" aria-modal="true" aria-label="Оформление нового проекта" onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setCreated(null);}if(e.key==='Tab'){const items=[...e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled)')];const i=items.indexOf(document.activeElement as HTMLElement);if(e.shiftKey&&i===0){e.preventDefault();items.at(-1)?.focus();}else if(!e.shiftKey&&i===items.length-1){e.preventDefault();items[0]?.focus();}}}}><p>Проект добавлен</p>{row}<button type="button" className="pc-apply" autoFocus onClick={()=>setCreated(null)}>Готово</button></div></div>;
  return surface&&project?createPortal(surface.host.classList.contains('pc-menu-surface')?<MenuPalette>{row}</MenuPalette>:row,surface.host):null;
 }
+// Fallback only; the live class list of a native submenu sibling (Organize/Sort by/Filter) is used when present.
+const NATIVE_SUBMENU_CLASS='flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-[0.3125rem] text-xs outline-none focus:bg-state-hover focus:text-foreground data-[state=open]:bg-state-active data-[state=open]:text-foreground [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 transition-none data-[last-hovered]:bg-state-hover data-[last-hovered]:text-foreground [&>[data-icon-root]:last-child]:size-3 [&>[data-icon-root]:last-child]:text-subtle-foreground';
 function MenuPalette({children}:{children:React.ReactNode}){
- const[open,setOpen]=useState(false);const[pos,setPos]=useState({left:0,top:0});const anchor=useRef<HTMLDivElement>(null);
+ const[open,setOpen]=useState(false);const anchor=useRef<HTMLDivElement>(null);
  useEffect(()=>{if(!open||!anchor.current)return;return watchMenuExit(anchor.current,()=>setOpen(false));},[open]);
- const show=()=>{anchor.current?.querySelector<HTMLButtonElement>('.pc-menu-trigger')?.focus({preventScroll:true});const r=anchor.current!.getBoundingClientRect();setPos({left:r.width+4,top:Math.min(0,window.innerHeight-r.top-280)});setOpen(true);};
+ const[nativeClass,setNativeClass]=useState(NATIVE_SUBMENU_CLASS);
+ useEffect(()=>{const c=anchor.current?.closest('[role="menu"]')?.querySelector<HTMLElement>('[role="menuitem"][aria-haspopup="menu"]:not(.pc-menu-trigger)')?.className;if(c)setNativeClass(c);},[]);
+ // Radix closes the whole menu on a document-level capture listener; intercept Escape earlier so it only closes the palette.
+ useEffect(()=>{if(!open)return;const esc=(e:KeyboardEvent)=>{if(e.key!=='Escape'||!anchor.current?.contains(document.activeElement))return;e.preventDefault();e.stopImmediatePropagation();setOpen(false);anchor.current.querySelector<HTMLElement>('.pc-menu-trigger')?.focus({preventScroll:true});};window.addEventListener('keydown',esc,true);return()=>window.removeEventListener('keydown',esc,true);},[open]);
+ // Radix roving focus only knows items it rendered itself, so splice the trigger into ArrowUp/ArrowDown order here.
+ useEffect(()=>{const menu=anchor.current?.closest<HTMLElement>('[role="menu"]');const trigger=anchor.current?.querySelector<HTMLElement>('.pc-menu-trigger');if(!menu||!trigger)return;
+  const keydown=(e:KeyboardEvent)=>{if(e.key!=='ArrowDown'&&e.key!=='ArrowUp')return;const items=[...menu.querySelectorAll<HTMLElement>('[role="menuitem"]')].filter(i=>i.closest('[role="menu"]')===menu&&!i.hasAttribute('data-disabled'));const i=items.indexOf(document.activeElement as HTMLElement);if(i<0)return;
+   const next=items[(i+(e.key==='ArrowDown'?1:-1)+items.length)%items.length];if(items[i]!==trigger&&next!==trigger)return;e.preventDefault();e.stopPropagation();next.focus({preventScroll:true});};
+  menu.addEventListener('keydown',keydown,true);return()=>menu.removeEventListener('keydown',keydown,true);},[]);
+ const[side,setSide]=useState<'right'|'left'|'below'>('right');const flyout=useRef<HTMLDivElement>(null);
+ const flyoutClass=useMemo(()=>{const m=anchor.current?.closest('[role="menu"]');return m?m.className:'rounded-md border bg-popover p-1 text-popover-foreground shadow-md';},[open]);
+ // Same placement as the Icon window: GAP beside the menu, top 5px above the item; the menu wrapper is transformed, so measure the real origin of position:fixed.
+ useLayoutEffect(()=>{const panel=flyout.current;const item=anchor.current;const menu=item?.closest<HTMLElement>('[role="menu"]');if(!open||!panel||!item||!menu)return;
+  const place=()=>{panel.style.left='0px';panel.style.top='0px';panel.style.maxHeight=`${window.innerHeight-FLY_EDGE*2}px`;const origin=panel.getBoundingClientRect();const mb=menu.getBoundingClientRect();const ab=item.getBoundingClientRect();const w=panel.offsetWidth;const h=panel.offsetHeight;
+   const fitsRight=mb.right+FLY_GAP+w<=window.innerWidth-FLY_EDGE;const fitsLeft=mb.left-FLY_GAP-w>=FLY_EDGE;let next:'right'|'left'|'below'='right';let left=mb.right+FLY_GAP;let top=ab.top-5;
+   if(!fitsRight&&fitsLeft){next='left';left=mb.left-FLY_GAP-w;}else if(!fitsRight){next='below';left=(window.innerWidth-w)/2;top=ab.bottom+FLY_GAP;}
+   left=Math.max(FLY_EDGE,Math.min(left,window.innerWidth-FLY_EDGE-w));top=Math.max(FLY_EDGE,Math.min(top,window.innerHeight-FLY_EDGE-h));panel.style.left=`${left-origin.left}px`;panel.style.top=`${top-origin.top}px`;setSide(next);};
+  place();const ro=new ResizeObserver(place);ro.observe(panel);window.addEventListener('resize',place);return()=>{ro.disconnect();window.removeEventListener('resize',place);};},[open]);
+ const show=()=>{anchor.current?.querySelector<HTMLButtonElement>('.pc-menu-trigger')?.focus({preventScroll:true});setOpen(true);};
  return <div ref={anchor} className="pc-menu-anchor" onMouseEnter={show} onKeyDown={e=>{if(e.key==='Escape'&&open){e.stopPropagation();setOpen(false);}if(e.key==='ArrowRight'){e.preventDefault();e.stopPropagation();show();}}}>
- <button type="button" role="menuitem" className="pc-menu-trigger" aria-haspopup="true" aria-expanded={open} onFocus={show} onClick={show}><Icon name="Palette" aria-hidden="true" className="pc-menu-icon"/><span className="pc-menu-label">Colour</span><span className="pc-submenu-arrow" aria-hidden="true"/></button>
- {open&&<div className="pc-flyout pc-settings" style={pos}>{children}</div>}
+ <button type="button" role="menuitem" className={'pc-menu-trigger '+nativeClass} aria-haspopup="menu" aria-expanded={open} data-state={open?'open':'closed'} tabIndex={-1} onClick={show}><Icon name="Palette" aria-hidden="true" className="pc-menu-icon"/><span className="pc-menu-label">Colour</span><Icon name="ChevronRight" aria-hidden="true" className="ml-auto pc-submenu-arrow"/></button>
+ {open&&<div ref={flyout} className={flyoutClass+' pc-flyout pc-settings'} data-side={side}>{children}</div>}
  </div>;
 }
 function ProjectRow({project,recent,initiallyOpen=false,save}:{project:ProjectColor;recent:string[];initiallyOpen?:boolean;save:(color:string|null)=>Promise<void>}){

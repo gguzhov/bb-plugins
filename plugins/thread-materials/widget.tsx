@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FocusEvent as ReactFocusEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useId, useRef, useState, type FocusEvent as ReactFocusEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { experimental_copyToClipboard as copyToClipboard } from "@get-bb/plugin-sdk/app";
 import { Icon } from "./components/ui/icon";
 import { usePortalScopeProps } from "./lib/portal-scope";
 import type { Material } from "./model";
-import { actionText, elapsedMs, formatCalls, formatClock, formatDuration, formatTokens, resolveModel, stateLabel, ticketCodes, type Executor } from "./agents";
+import type { GitChanges } from "./git-stats";
+import { actionText, elapsedMs, executorCounts, executorSummary, formatCalls, formatClock, formatDuration, formatTokens, resolveModel, stateLabel, ticketCodes, type Executor } from "./agents";
 import { displayAgentName, type Dict, type Lang } from "./i18n";
 import { chipSummary, gitChipText, placePopover, readState, toggle, visibleRows, writeState, type SectionId, type WidgetState } from "./widget-state";
 import { isImageHref, MaterialIcon, useThumbnail } from "./MaterialIcon";
 import { CARD_SCAN_EVENT } from "./card-chrome";
 
-type GitOk = { kind: "ok"; branch: string; base: "upstream" | "merge-base" | "head"; baseRef: string | null; added: number; removed: number; files: number; uncommitted: { added: number; removed: number; files: number }; unpushedCommits: number; truncated: boolean; top?: { path: string; added: number | null; removed: number | null }[] };
-export type GitState = GitOk | { kind: "not-git" } | { kind: "no-env" } | { kind: "error"; message: string } | null;
+export type GitState = GitChanges | { kind: "no-env" } | null;
 export type WidgetData = { materials: Material[]; executors: Executor[]; leaderModel: string | null; executorsPartial: boolean; hostId: string | null };
 
 const storage = () => { try { return window.localStorage; } catch { return null; } };
@@ -57,18 +57,43 @@ function HoverCard({ anchor, open, id, children, wide = false }: { anchor: RefOb
 
 // ---------- chips ----------
 
-function SectionChip({ id, icon, label, text, aria, open, onToggle, chipRef, running = false }: {
- id: SectionId; icon: string; label: string; text?: string; aria?: string; open: boolean;
- onToggle: (id: SectionId) => void; chipRef: (el: HTMLButtonElement | null) => void; running?: boolean;
-}) {
- return <button ref={chipRef} type="button" className="tm-chip" data-section={id} aria-expanded={open}
-  aria-controls={open ? "tm-sec-" + id : undefined} aria-label={aria ? label + ": " + aria : label} title={label} data-tm-git-ready={id === "git" ? "" : undefined} onClick={() => onToggle(id)}>
-  <Icon name={icon} aria-hidden />{text && <span className="tm-chip-text" aria-hidden="true">{text}</span>}
-  {running && <span className="tm-chip-live" aria-hidden="true" />}
- </button>;
+/** "2 в работе · 5 готово · 1 с ошибкой": running in the active colour with a live dot, errors in the error colour. */
+function SummaryText({ parts, form }: { parts: ReturnType<typeof executorSummary>; form: "short" | "long" }) {
+ return <>{parts.map((p, i) => <span key={p.state} className={"tm-sum-part tm-sum-" + p.state} data-sum={p.state}>
+  {p.state === "running" && <span className="tm-chip-live" aria-hidden="true" />}{p.text}{i < parts.length - 1 && <span className="tm-sum-sep" aria-hidden="true">·</span>}
+ </span>)}</>;
 }
 
-function GitDetails({ git, t, openChanges }: { git: GitState; t: Dict; openChanges: () => void }) {
+function SectionChip({ id, icon, label, text, tip, failed = false, aria, open, onToggle, chipRef, registerClose, running = false, gitReady = false }: {
+ id: SectionId; icon: string; label: string; text?: string; tip?: string; failed?: boolean; aria?: string; open: boolean;
+ onToggle: (id: SectionId) => void; chipRef: (el: HTMLButtonElement | null) => void;
+ registerClose: (fn: () => void) => () => void; running?: boolean; gitReady?: boolean;
+}) {
+ const anchor = useRef<HTMLButtonElement>(null);
+ const tipId = useId();
+ const hover = useHover(350);
+ useEffect(() => registerClose(hover.close), [registerClose, hover.close]);
+ return <>
+  <button ref={element => { anchor.current = element; chipRef(element); }} type="button" className="tm-chip" data-section={id} aria-expanded={open}
+   aria-controls={open ? "tm-sec-" + id : undefined} aria-label={aria ? label + ": " + aria : label}
+   aria-describedby={hover.open ? tipId : undefined} data-tm-git-ready={gitReady ? "" : undefined} onClick={() => { hover.close(); onToggle(id); }} {...hover.bind}>
+   <Icon name={icon} aria-hidden />{text && <span className="tm-chip-count" aria-hidden="true">{text}</span>}
+   {running && <span className="tm-chip-live" aria-hidden="true" />}{failed && <span className="tm-chip-fail" data-testid="tm-chip-fail" aria-hidden="true" />}
+  </button>
+  <HoverCard anchor={anchor} open={hover.open} id={tipId}><span className="tm-chip-label">{label}</span>{tip && <span className="tm-chip-tip" data-testid="tm-chip-tip">{tip}</span>}</HoverCard>
+ </>;
+}
+
+export function GitCommitList({ commits, limit, t }: { commits: Extract<GitChanges, { kind: "ok" }>["recentCommits"]; limit?: number; t: Dict }) {
+ return <div className="tm-git-history">
+  <p className="tm-pop-h">{t.recentCommits}</p>
+  {commits?.length ? <ul aria-label={t.recentCommits}>
+   {commits.slice(0, limit).map(commit => <li key={commit.hash}><code>{commit.hash}</code><span>{commit.subject || "–"}</span></li>)}
+  </ul> : <p className="tm-empty">{commits ? t.noCommits : t.commitsUnavailable}</p>}
+ </div>;
+}
+
+function GitDetails({ git, t }: { git: GitState; t: Dict }) {
  if (!git || git.kind !== "ok") {
   const message = !git ? t.gitLoading : git.kind === "not-git" ? t.notGit : git.kind === "no-env" ? t.noEnv : git.message;
   return <p className="tm-empty" role="status">{message}</p>;
@@ -82,7 +107,7 @@ function GitDetails({ git, t, openChanges }: { git: GitState; t: Dict; openChang
    {file.added === null && file.removed === null ? <span className="tm-pop-muted">{t.binary}</span> :
     <span className="tm-git-stats"><span className="tm-git-add">+{file.added ?? 0}</span><span className="tm-git-del">−{file.removed ?? 0}</span></span>}
   </li>)}</ul>}
-  <button type="button" className="tm-textact" onClick={openChanges}>{t.openChanges}</button>
+  <GitCommitList commits={git.recentCommits} limit={3} t={t} />
  </>;
 }
 
@@ -160,29 +185,28 @@ function MaterialRow({ item, threadId, t, removable, onOpen, onCopy, onRemove, c
    <button type="button" className="tm-act" aria-label={t.copyAria(item.title)} title={copied ? t.copied : t.copyPath} onClick={() => onCopy(item)}><Icon name={copied ? "Check" : "Copy"} aria-hidden /></button>
    {removable && <button type="button" className="tm-act" aria-label={t.removeAria(item.title)} title={t.remove} onClick={() => onRemove(item)}><Icon name="X" aria-hidden /></button>}
   </span>
-  {image && <HoverCard anchor={ref} open={hover.open} id={popId}><p className="tm-pop-h">{t.imagePreview}</p>{thumb ? <img className="tm-pop-img" src={thumb} alt="" /> : <p className="tm-pop-muted">{t.loading}</p>}</HoverCard>}
+  {image && <HoverCard anchor={ref} open={hover.open} id={popId}><p className="tm-pop-h">{item.title}</p>{thumb ? <img className="tm-pop-img" src={thumb} alt="" /> : <p className="tm-pop-muted">{t.loading}</p>}</HoverCard>}
  </li>;
 }
 
 // ---------- the widget ----------
 
-export function ChatWidget({ threadId, data, git, lang, t, openChanges, openThread, showInChat, openMaterial, onRemove, renderLink, materialActions, visible, error }: {
+export function ChatWidget({ threadId, data, git, lang, t, openAll, openThread, showInChat, openMaterial, onRemove, renderLink, visible, error }: {
  threadId: string; data: WidgetData | null; git: GitState; lang: Lang; t: Dict; visible: boolean; error: ReactNode;
- openChanges: () => void; openThread: (id: string) => void; showInChat: (seq: number) => void;
- openMaterial: (item: Material) => void; onRemove: (item: Material) => void; renderLink: (item: Material) => ReactNode; materialActions: (group: Material["group"]) => ReactNode;
+ openAll: (section: SectionId) => void; openThread: (id: string) => void; showInChat: (seq: number) => void;
+ openMaterial: (item: Material) => void; onRemove: (item: Material) => void; renderLink: (item: Material) => ReactNode;
 }) {
  const [state, setState] = useState<WidgetState>(() => readState(storage(), threadId));
  const [expanded, setExpanded] = useState<string | null>(null);
  const [copied, setCopied] = useState<string | null>(null);
  const chips = data ? chipSummary(data) : null;
  const open = state.open;
- const [showAll, setShowAll] = useState(false);
- useEffect(() => { setState(readState(storage(), threadId)); setExpanded(null); setShowAll(false); }, [threadId]);
+ useEffect(() => { setState(readState(storage(), threadId)); setExpanded(null); }, [threadId]);
  const chipEls = useRef<Partial<Record<SectionId, HTMLButtonElement | null>>>({});
  const root = useRef<HTMLDivElement>(null);
  const closers = useRef(new Set<() => void>());
  const registerClose = useCallback((fn: () => void) => { closers.current.add(fn); return () => { closers.current.delete(fn); }; }, []);
- const onToggle = (id: SectionId) => { const next = toggle({ open }, id); setState(next); writeState(storage(), threadId, next); setExpanded(null); setShowAll(false); };
+ const onToggle = (id: SectionId) => { const next = toggle({ open }, id); setState(next); writeState(storage(), threadId, next); setExpanded(null); };
  const running = (data?.executors ?? []).some(x => x.state === "running");
  const now = useTicker(visible && open === "agents" && running);
 
@@ -196,7 +220,7 @@ export function ChatWidget({ threadId, data, git, lang, t, openChanges, openThre
    if (!active || !root.current.contains(active) || active.closest("dialog")) return;
    const popover = document.querySelector('.tm-pop');
    if (popover) { closers.current.forEach(fn => fn()); }
-   else if (openRef.current) { const id = openRef.current; const next = { open: null }; setState(next); writeState(storage(), threadId, next); setExpanded(null); setShowAll(false); requestAnimationFrame(() => chipEls.current[id]?.focus()); }
+   else if (openRef.current) { const id = openRef.current; const next = { open: null }; setState(next); writeState(storage(), threadId, next); setExpanded(null); requestAnimationFrame(() => chipEls.current[id]?.focus()); }
    else return;
    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
   };
@@ -210,43 +234,43 @@ export function ChatWidget({ threadId, data, git, lang, t, openChanges, openThre
   setCopied(item.id); setTimeout(() => setCopied(c => c === item.id ? null : c), 1500);
  };
  // The card may sit inside the chat timeline, which card-chrome does not watch: ask it to mark the card.
- const gitReady = git?.kind === "ok" && (git.files > 0 || git.unpushedCommits > 0);
+ const gitReady = git?.kind === "ok";
  useEffect(() => { window.dispatchEvent(new Event(CARD_SCAN_EVENT)); }, [gitReady, open, !!data]);
  const onKeyDown = (e: ReactKeyboardEvent) => { if (e.key === " " && (e.target as HTMLElement).tagName === "A") { e.preventDefault(); (e.target as HTMLElement).click(); } };
 
  const list = data?.executors ?? [];
  const ag = chips?.agents;
- const labels = { git: "Git", agents: t.executors, result: t.results, source: t.sources };
- const section = (id: SectionId, body: ReactNode, rest = 0) => <section id={"tm-sec-" + id} className="tm-wsec" aria-label={labels[id]}>
+ const execCounts = executorCounts(list);
+ const sumParts = data ? executorSummary(execCounts, lang, "short") : [];
+ const labels = { git: "Git", agents: t.executors, result: t.createdMaterials, source: t.attachments };
+ const section = (id: SectionId, body: ReactNode) => <section id={"tm-sec-" + id} className="tm-wsec" aria-label={labels[id]}>
   {body}
-  {rest > 0 && <button type="button" className="tm-more" onClick={() => setShowAll(true)}>{t.more(rest)}<Icon name="ChevronDown" aria-hidden /></button>}
   {id === "agents" && data?.executorsPartial && <p className="tm-empty">{t.partial}</p>}
+  <button type="button" className="tm-view-all" onClick={() => openAll(id)}>{t.viewAll}</button>
  </section>;
  let body: ReactNode = null;
  if (open === "git") {
-  body = section(open, <GitDetails git={git} t={t} openChanges={openChanges} />);
+  body = section(open, <GitDetails git={git} t={t} />);
  } else if (open === "agents") {
-  const { shown, rest } = visibleRows(list, showAll ? list.length : 3);
+  const { shown } = visibleRows(list, 3);
   body = section(open, !data || !shown.length ? <p className="tm-empty" role="status">{data ? t.emptyAgents : error ? null : t.loading}</p> :
-   <ul className="tm-wlist">{shown.map(x => <ExecRow key={x.id} x={x} data={data} t={t} lang={lang} now={now} expanded={expanded === x.id} onExpand={setExpanded} onThread={openThread} onChat={showInChat} registerClose={registerClose} />)}</ul>, rest);
+   <><p className="tm-wsum" data-testid="tm-exec-total"><SummaryText parts={executorSummary(executorCounts(list), lang, "long")} form="long" /></p><ul className="tm-wlist">{shown.map(x => <ExecRow key={x.id} x={x} data={data} t={t} lang={lang} now={now} expanded={expanded === x.id} onExpand={setExpanded} onThread={openThread} onChat={showInChat} registerClose={registerClose} />)}</ul></>);
  } else if (open === "result" || open === "source") {
   const entries = data?.materials.filter(x => x.group === open) ?? [];
-  const { shown, rest } = visibleRows(entries, showAll ? entries.length : undefined);
-  body = section(open, <>
-   {materialActions(open)}
-   {!data || !shown.length ? <p className="tm-empty" role="status">{!data ? (error ? null : t.loading) : open === "result" ? t.emptyResults : t.emptySources}</p> :
-    <ul className="tm-wlist">{shown.map(item => <MaterialRow key={item.id} item={item} threadId={threadId} t={t} removable={!item.originThreadId || item.originThreadId === threadId} onOpen={openMaterial} onCopy={copy} onRemove={onRemove} copied={copied === item.id} registerClose={registerClose} link={renderLink(item)} />)}</ul>}
-  </>, rest);
+  const { shown } = visibleRows(entries);
+  body = section(open, !data || !shown.length ? <p className="tm-empty" role="status">{!data ? (error ? null : t.loading) : open === "result" ? t.emptyResults : t.emptySources}</p> :
+    <ul className="tm-wlist">{shown.map(item => <MaterialRow key={item.id} item={item} threadId={threadId} t={t} removable={!item.originThreadId || item.originThreadId === threadId} onOpen={openMaterial} onCopy={copy} onRemove={onRemove} copied={copied === item.id} registerClose={registerClose} link={renderLink(item)} />)}</ul>);
  }
  return <div ref={root} className="tm-wroot" onKeyDown={onKeyDown}>
   <div className="tm-chips" aria-label={t.widgetLabel}>
-   <SectionChip id="git" icon="GitBranch" label={labels.git} text={git?.kind === "ok" && git.files > 0 ? String(git.files) : undefined} chipRef={el => { chipEls.current.git = el; }} open={open === "git"} onToggle={onToggle} />
-   <SectionChip id="agents" icon="Bot" label={labels.agents} chipRef={el => { chipEls.current.agents = el; }} running={!!ag?.running}
+   <SectionChip id="git" icon="GitBranch" label={labels.git} registerClose={registerClose} gitReady={git?.kind === "ok"} chipRef={el => { chipEls.current.git = el; }} open={open === "git"} onToggle={onToggle} />
+   <SectionChip id="agents" icon="Bot" label={labels.agents} registerClose={registerClose} chipRef={el => { chipEls.current.agents = el; }} running={!!ag?.running}
     text={!ag ? "…" : ag.running ? ag.running + "/" + ag.total : String(ag.total)}
-    aria={!ag ? t.loading : ag.running ? ag.running + " " + t.running + ", " + ag.total + " " + t.total : ag.total + " " + t.total}
+    tip={sumParts.map(p => p.text).join(" · ") || undefined} failed={!!data && execCounts.error > 0}
+    aria={!ag ? t.loading : sumParts.map(p => p.text).join(", ") || String(ag.total)}
     open={open === "agents"} onToggle={onToggle} />
-   <SectionChip id="result" icon="FileText" label={labels.result} chipRef={el => { chipEls.current.result = el; }} text={chips ? String(chips.result.count) : "…"} aria={chips ? String(chips.result.count) : t.loading} open={open === "result"} onToggle={onToggle} />
-   <SectionChip id="source" icon="Paperclip" label={labels.source} chipRef={el => { chipEls.current.source = el; }} text={chips ? String(chips.source.count) : "…"} aria={chips ? String(chips.source.count) : t.loading} open={open === "source"} onToggle={onToggle} />
+   <SectionChip id="result" icon="FileText" label={labels.result} registerClose={registerClose} chipRef={el => { chipEls.current.result = el; }} text={chips ? String(chips.result.count) : "…"} aria={chips ? String(chips.result.count) : t.loading} open={open === "result"} onToggle={onToggle} />
+   <SectionChip id="source" icon="Paperclip" label={labels.source} registerClose={registerClose} chipRef={el => { chipEls.current.source = el; }} text={chips ? String(chips.source.count) : "…"} aria={chips ? String(chips.source.count) : t.loading} open={open === "source"} onToggle={onToggle} />
   </div>
   {error}
   {body}

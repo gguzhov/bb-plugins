@@ -296,6 +296,9 @@ function acceptTone(share: number): "ok" | "warn" | undefined {
 // ── Background work, read through task-queue's `activity` RPC ─────────────
 
 const HOST_CARD = 'section[aria-label^="Background"]:not([data-bgpeek-card]):not([data-tqueue-card])';
+/** bb's "Active child threads" card; its question row is what lets the owner answer a child. */
+const CHILD_CARD = 'section[aria-label="Child threads"]';
+const CHILD_QUESTION = "[data-child-question-row]";
 const CLOSED_MS = 5000;
 const OPEN_MS = 2000;
 
@@ -871,6 +874,39 @@ function useScrollFade(): [React.RefObject<HTMLDivElement | null>, boolean] {
   return [ref, more];
 }
 
+/**
+ * bb's "Active child threads" card is hidden by app.css while this card is up
+ * (the children show under their tickets). Liquid Glass counts a hidden card
+ * into its deck and pill row all the same, so the card is also marked as not a
+ * card. A child that asks a question gets a row in it, and then the card is
+ * left alone.
+ */
+function useChildCardAside(root: React.RefObject<HTMLElement | null>, on: boolean): void {
+  useEffect(() => {
+    if (!on) return;
+    let marked: Element | null = null;
+    const tick = () => {
+      const composer = root.current?.closest("[data-app-composer]") ?? null;
+      const card = composer?.querySelector(CHILD_CARD) ?? null;
+      const hide = card !== null && card.querySelector(CHILD_QUESTION) === null ? card : null;
+      if (marked === hide) return;
+      marked?.removeAttribute(DECK_UI);
+      hide?.setAttribute(DECK_UI, "");
+      marked = hide;
+      rescanDeck();
+    };
+    tick();
+    const timer = window.setInterval(tick, 500);
+    return () => {
+      window.clearInterval(timer);
+      if (marked !== null) {
+        marked.removeAttribute(DECK_UI);
+        rescanDeck();
+      }
+    };
+  }, [root, on]);
+}
+
 function TaskQueueBanner() {
   const composer = useComposer();
   const lang = useResolvedLang();
@@ -889,6 +925,7 @@ function TaskQueueBanner() {
   // Phones (liquid-glass "pills"): the card stays a full-width card above the prompt box, not a pill.
   const pillsDeck = usePillsMode();
   useDeckOptOut(card, pillsDeck, plan !== null);
+  useChildCardAside(card, plan !== null);
   useKeyboardFold(card, open && pillsDeck, setOpen);
 
   if (plan === null) return null;

@@ -34,12 +34,18 @@ export function displayAgentName(name: string | undefined, ordinal: number | und
 
 const en = {
  // sections and chips
- results: "Results", sources: "Sources", executors: "Executors", git: "Git",
+ results: "Results", sources: "Sources", createdMaterials: "Created materials", attachments: "Attachments", executors: "Executors", git: "Git",
  running: "running", total: "total",
+ summaryShort: { running: (n: number) => n + " running", done: (n: number) => n + " finished", error: (n: number) => n + " failed", stopped: (n: number) => n + " stopped" },
+ summaryLong: { running: (n: number) => "Running " + n, done: (n: number) => "Finished " + n, error: (n: number) => "Failed " + n, stopped: (n: number) => "Stopped " + n },
  chipGitTitle: "Changes not on GitHub yet. Click to open the diff",
  chipEmpty: "Nothing here yet",
  openSection: "Show", closeSection: "Hide",
  more: (n: number) => n + " more",
+ viewAll: "View all",
+ recentCommits: "Recent commits",
+ noCommits: "This branch has no commits yet.",
+ commitsUnavailable: "Commit history is unavailable.",
  moreTitle: "Open the full list in the right panel",
  loading: "Loading…",
  emptyAgents: "No subagents yet.",
@@ -82,8 +88,8 @@ const en = {
  removeAria: (t: string) => "Remove: " + t, openAria: (t: string) => "Open: " + t, copyAria: (t: string) => "Copy path: " + t,
  previewAria: (t: string) => "Preview: " + t,
  noEnvironment: "This chat has no working environment",
- add: "Add", addTitle: "Add material", archive: "Archive", archiveCount: (n: number) => "Archive" + (n ? " (" + n + ")" : ""),
- title: "Title", hrefLabel: "Link or full path", saving: "Saving…", cancel: "Cancel", restore: "Restore",
+ archive: "Archive", archiveCount: (n: number) => "Archive" + (n ? " (" + n + ")" : ""),
+ cancel: "Cancel", restore: "Restore",
  archiveEmpty: "Nothing in the archive yet.",
  updateFailed: "Could not refresh: ", retry: "Retry",
  olderMaybe: "Earlier messages may contain more materials.", loadOlder: "Load earlier messages", historyLimit: "History limit reached.",
@@ -96,17 +102,22 @@ const en = {
  toArchive: "Move to archive", deleteFromList: "Delete from list",
  // widget chrome
  widgetLabel: "Chat widget",
- imagePreview: "Image preview",
 };
 export type Dict = typeof en;
 
 const ru: Dict = {
- results: "Результаты", sources: "Источники", executors: "Исполнители", git: "Git",
+ results: "Результаты", sources: "Источники", createdMaterials: "Созданные материалы", attachments: "Вложения", executors: "Исполнители", git: "Git",
  running: "работает", total: "всего",
+ summaryShort: { running: n => n + " в работе", done: n => n + " завершили", error: n => n + " с ошибкой", stopped: n => n + " " + pluralRu(n, "остановлен", "остановлено", "остановлено") },
+ summaryLong: { running: n => "В работе " + n, done: n => "Завершили " + n, error: n => "С ошибкой " + n, stopped: n => "Остановлено " + n },
  chipGitTitle: "Изменения, которых ещё нет на GitHub. Нажмите, чтобы открыть",
  chipEmpty: "Пока пусто",
  openSection: "Показать", closeSection: "Скрыть",
  more: n => "ещё " + n,
+ viewAll: "Посмотреть всё",
+ recentCommits: "Последние коммиты",
+ noCommits: "В этой ветке пока нет коммитов.",
+ commitsUnavailable: "История коммитов недоступна.",
  moreTitle: "Открыть весь список в правой панели",
  loading: "Загрузка…",
  emptyAgents: "Субагентов пока нет.",
@@ -145,8 +156,8 @@ const ru: Dict = {
  removeAria: t => "Убрать: " + t, openAria: t => "Открыть: " + t, copyAria: t => "Скопировать путь: " + t,
  previewAria: t => "Предпросмотр: " + t,
  noEnvironment: "У чата нет рабочего окружения",
- add: "Добавить", addTitle: "Добавить материал", archive: "Архив", archiveCount: n => "Архив" + (n ? " (" + n + ")" : ""),
- title: "Название", hrefLabel: "Ссылка или полный путь", saving: "Сохранение…", cancel: "Отмена", restore: "Вернуть",
+ archive: "Архив", archiveCount: n => "Архив" + (n ? " (" + n + ")" : ""),
+ cancel: "Отмена", restore: "Вернуть",
  archiveEmpty: "В архиве пока нет материалов.",
  updateFailed: "Не удалось обновить: ", retry: "Повторить",
  olderMaybe: "В более ранних сообщениях могут быть другие материалы.", loadOlder: "Загрузить более ранние сообщения", historyLimit: "Достигнут предел просмотра истории.",
@@ -157,7 +168,6 @@ const ru: Dict = {
  removeText: "Можно сохранить запись в архиве или удалить её из списка. Сам файл останется на месте.",
  toArchive: "В архив", deleteFromList: "Удалить из списка",
  widgetLabel: "Виджет чата",
- imagePreview: "Предпросмотр изображения",
 };
 
 export const DICT: Record<Lang, Dict> = { en, ru };

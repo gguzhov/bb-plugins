@@ -1,0 +1,462 @@
+/* Project icons. The menu item and the window take their look from bb's own
+   classes (copied at runtime), so only layout and the grid are defined here.
+   Colours come from theme variables. */
+
+/* The host only carries the item into the menu; it must not affect layout. */
+.pi-menu-host {
+  display: contents;
+}
+
+/* While our item owns hover, a native sibling must not stay highlighted. */
+[role="menu"].pi-menu-active > [role="menuitem"]:is([data-last-hovered], [data-highlighted]):not(:focus) {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+/* Side window. Doubled class beats the copied `overflow-hidden` / `min-w-28` utilities. */
+.pi-flyout.pi-flyout {
+  position: fixed;
+  z-index: 60;
+  min-width: 0;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.pi-picker {
+  --pi-cell: 40px;
+  --pi-gap: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: calc(var(--pi-cell) * 6 + var(--pi-gap) * 5);
+  font-size: 12px;
+}
+
+@media (max-width: 640px), (pointer: coarse) {
+  .pi-picker {
+    --pi-cell: 44px;
+  }
+}
+
+.pi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, var(--pi-cell));
+  gap: var(--pi-gap);
+}
+
+.pi-cell {
+  display: grid;
+  place-items: center;
+  width: var(--pi-cell);
+  height: var(--pi-cell);
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  outline: none;
+}
+
+.pi-cell:hover,
+.pi-cell:focus-visible {
+  background-color: var(--state-hover);
+}
+
+.pi-cell:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring, currentColor);
+}
+
+.pi-cell[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 2px var(--foreground, currentColor);
+}
+
+.pi-cell[aria-pressed="true"]:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--foreground, currentColor), 0 0 0 2px var(--ring, currentColor);
+}
+
+.pi-cell[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.pi-cell-art {
+  width: 32px;
+  height: 32px;
+}
+
+.pi-slot {
+  display: contents;
+}
+
+/* «Без иконки»: a crossed-out circle drawn in the text colour. */
+.pi-none {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--muted-foreground, currentColor);
+  background: linear-gradient(135deg, transparent 45%, var(--muted-foreground, currentColor) 46%, var(--muted-foreground, currentColor) 54%, transparent 55%);
+  box-sizing: border-box;
+}
+
+.pi-add-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--muted-foreground, currentColor);
+}
+
+.pi-custom {
+  position: relative;
+  display: block;
+}
+
+.pi-remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--foreground, #000);
+  color: var(--background, #fff);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pi-custom:hover .pi-remove,
+.pi-custom:focus-within .pi-remove {
+  display: grid;
+}
+
+@media (pointer: coarse) {
+  .pi-remove {
+    display: grid;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.pi-note,
+.pi-status {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 11px;
+  color: var(--muted-foreground, inherit);
+}
+
+.pi-status:empty {
+  display: none;
+}
+
+.pi-error {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 12px;
+  color: var(--destructive, #d93025);
+  overflow-wrap: anywhere;
+}
+
+.pi-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 2px 2px;
+  border-top: 1px solid var(--border);
+}
+
+.pi-confirm p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.pi-confirm-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.pi-button {
+  flex: 1;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pi-button:hover,
+.pi-button:focus-visible {
+  background-color: var(--state-hover);
+  outline: none;
+}
+
+.pi-danger {
+  border-color: transparent;
+  background: var(--destructive, #d93025);
+  color: var(--destructive-foreground, #fff);
+}
+
+.pi-danger:hover,
+.pi-danger:focus-visible {
+  background: var(--destructive, #d93025);
+  filter: brightness(0.92);
+}
+
+@media (max-width: 640px), (pointer: coarse) {
+  .pi-button {
+    min-height: 44px;
+  }
+}
+
+.pi-file {
+  display: none;
+}
+
+/* Icon next to the project name in the sidebar. */
+.pi-project-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The last action wins: the colour underline from «Цвета проектов» is hidden only while
+   the icon was assigned at or after the colour was chosen (class set in decoration.ts).
+   The rule depends on our icon element, so the underline returns as soon as it is removed. */
+.pi-project-icon.pi-no-underline + .pc-project-label {
+  box-shadow: none !important;
+  padding-bottom: 0 !important;
+}
+
+/* ---- Frames and animation (sidebar icon and picker preview) ----
+   Frames lie in one grid cell on top of each other; only opacity changes, in
+   steps. Working («eyes»), a 3 s loop: straight 1.6 s, left 0.5 s, straight 0.4 s,
+   right 0.5 s. Waiting («puzzled»): the puzzled frame tilts back and forth every 2 s. */
+.pi-stack {
+  position: relative;
+  display: inline-grid;
+  box-sizing: border-box;
+}
+
+.pi-stack > .pi-frame {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.pi-stack > .pi-frame:not(.pi-frame-base) {
+  opacity: 0;
+}
+
+.pi-stack[data-pi-anim="eyes"] > .pi-frame-base {
+  animation: pi-eyes-base 3s steps(1, end) infinite;
+}
+
+.pi-stack[data-pi-anim="eyes"] > .pi-frame-left {
+  animation: pi-eyes-left 3s steps(1, end) infinite;
+}
+
+.pi-stack[data-pi-anim="eyes"] > .pi-frame-right {
+  animation: pi-eyes-right 3s steps(1, end) infinite;
+}
+
+/* Working without left/right frames: the whole icon steps 1 px, same rhythm. */
+.pi-stack[data-pi-anim="wiggle"] {
+  animation: pi-wiggle 3s steps(1, end) infinite;
+}
+
+.pi-stack[data-pi-anim="puzzled"] > .pi-frame-base {
+  opacity: 0;
+}
+
+.pi-stack[data-pi-anim="puzzled"] > .pi-frame-puzzled {
+  opacity: 1;
+  animation: pi-tilt 2s ease-in-out infinite;
+}
+
+/* Picker preview: a 4 s loop of every state: straight 1.6 s, left 0.5 s, straight
+   0.4 s, right 0.5 s («works»), then the puzzled frame 1 s («waits for you»). */
+.pi-stack[data-pi-anim="preview"] > .pi-frame-base {
+  animation: pi-pv-base 4s steps(1, end) infinite;
+}
+
+.pi-stack[data-pi-anim="preview"] > .pi-frame-left {
+  animation: pi-pv-left 4s steps(1, end) infinite;
+}
+
+.pi-stack[data-pi-anim="preview"] > .pi-frame-right {
+  animation: pi-pv-right 4s steps(1, end) infinite;
+}
+
+.pi-stack[data-pi-anim="preview"] > .pi-frame-puzzled {
+  animation: pi-pv-puzzled 4s steps(1, end) infinite;
+}
+
+@keyframes pi-pv-base {
+  0% { opacity: 1; }
+  40% { opacity: 0; }
+  52.5% { opacity: 1; }
+  62.5% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes pi-pv-left {
+  0% { opacity: 0; }
+  40% { opacity: 1; }
+  52.5% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes pi-pv-right {
+  0% { opacity: 0; }
+  62.5% { opacity: 1; }
+  75% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes pi-pv-puzzled {
+  0% { opacity: 0; }
+  75% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+/* The line under the grid always takes its height, so the window does not jump.
+   All four phrases lie in one cell; the one that fits the hovered icon is shown. */
+.pi-caption {
+  display: grid;
+  margin: 0;
+  padding: 0 2px;
+  height: 16px;
+  line-height: 16px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--muted-foreground, inherit);
+}
+
+.pi-cap {
+  grid-area: 1 / 1;
+  opacity: 0;
+}
+
+.pi-caption[data-pi-caption="none"] > .pi-cap-still {
+  opacity: 1;
+}
+
+.pi-caption[data-pi-caption="frames"] > .pi-cap-work {
+  animation: pi-cap-work 4s steps(1, end) infinite;
+}
+
+.pi-caption[data-pi-caption="frames"] > .pi-cap-wait {
+  animation: pi-cap-wait 4s steps(1, end) infinite;
+}
+
+@keyframes pi-cap-work {
+  0% { opacity: 1; }
+  75% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes pi-cap-wait {
+  0% { opacity: 0; }
+  75% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+/* Waiting without a puzzled frame (or with animation off): a small yellow «?». */
+.pi-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #f5b700;
+  color: #1f1a00;
+  box-shadow: 0 0 0 1px var(--sidebar, var(--background, #fff));
+  font: 700 7px/1 system-ui, sans-serif;
+}
+
+@keyframes pi-eyes-base {
+  0% { opacity: 1; }
+  53.333% { opacity: 0; }
+  70% { opacity: 1; }
+  83.333% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes pi-eyes-left {
+  0% { opacity: 0; }
+  53.333% { opacity: 1; }
+  70% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes pi-eyes-right {
+  0% { opacity: 0; }
+  83.333% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+@keyframes pi-wiggle {
+  0% { transform: translateX(0); }
+  53.333% { transform: translateX(-1px); }
+  70% { transform: translateX(0); }
+  83.333% { transform: translateX(1px); }
+  100% { transform: translateX(1px); }
+}
+
+@keyframes pi-tilt {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+}
+
+/* No motion: working shows the main frame, waiting keeps the puzzled frame or the badge still. */
+@media (prefers-reduced-motion: reduce) {
+  .pi-stack[data-pi-anim],
+  .pi-stack[data-pi-anim] > .pi-frame {
+    animation: none !important;
+  }
+
+  .pi-stack[data-pi-anim="eyes"] > .pi-frame-base,
+  .pi-stack[data-pi-anim="preview"] > .pi-frame-base {
+    opacity: 1;
+  }
+
+  .pi-stack[data-pi-anim="preview"] > .pi-frame:not(.pi-frame-base) {
+    opacity: 0;
+  }
+
+  .pi-caption[data-pi-caption="frames"] > .pi-cap-work,
+  .pi-caption[data-pi-caption="frames"] > .pi-cap-wait {
+    animation: none !important;
+    opacity: 0;
+  }
+
+  .pi-caption[data-pi-caption="frames"] > .pi-cap-reduced {
+    opacity: 1;
+  }
+
+  .pi-stack[data-pi-anim="eyes"] > .pi-frame-left,
+  .pi-stack[data-pi-anim="eyes"] > .pi-frame-right {
+    opacity: 0;
+  }
+}

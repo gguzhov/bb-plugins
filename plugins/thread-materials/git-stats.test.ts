@@ -151,3 +151,26 @@ test("gitChanges reports the top files of an edited repository", async () => {
  const r = await ok(w);
  assert.deepEqual(r.top?.map(f => [f.path, f.added, f.removed]), [["note.md", 3, 0], ["a.txt", 2, 0]]);
 });
+
+test("recent branch commits preserve subjects and include pushed and local commits", async () => {
+ const w = repo();
+ sh(w, "commit", "-q", "--allow-empty", "-m", "Обновить вкладку Git");
+ const r = await ok(w);
+ assert.equal(r.unpushedCommits, 1);
+ assert.deepEqual(r.recentCommits, [
+  { hash: sh(w, "rev-parse", "--short", "HEAD").trim(), subject: "Обновить вкладку Git" },
+  { hash: sh(w, "rev-parse", "--short", "HEAD^").trim(), subject: "init" },
+ ]);
+});
+
+test("recent history is bounded and an unborn branch reports no commits", async () => {
+ const root = mkdtempSync(join(tmpdir(), "tm-unborn-test-"));
+ roots.push(root);
+ sh(root, "init", "-q", "-b", "empty");
+ assert.deepEqual((await ok(root)).recentCommits, []);
+ for (let i = 1; i <= 21; i++) sh(root, "commit", "-q", "--allow-empty", "-m", "commit " + i);
+ const history = (await ok(root)).recentCommits;
+ assert.equal(history?.length, 20);
+ assert.equal(history?.[0]?.subject, "commit 21");
+ assert.equal(history?.at(-1)?.subject, "commit 2");
+});

@@ -1,0 +1,39 @@
+{
+  "name": "bb-plugin-genidev-project-icons",
+  "version": "0.2.1",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.50",
+    "bbPluginSdk": ">=0.6.157"
+  },
+  "bb": {
+    "name": "Иконки проектов",
+    "description": "Иконка слева от названия проекта в боковой панели: выбор в меню проекта, вшитый набор и свои картинки, анимация по состоянию проекта. Агенты добавляют картинки командой bb genidev-project-icons.",
+    "branding": {
+      "icon": "GridView"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.157",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/jsdom": "^30.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "^12.0.0",
+    "cron-parser": "^5.10.6",
+    "hono": "^4.11.9",
+    "jsdom": "^31.0.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.0"
+  },
+  "scripts": {
+    "test": "node --import tsx --test *.test.ts",
+    "typecheck": "tsc --noEmit"
+  }
+}

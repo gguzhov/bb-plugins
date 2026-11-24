@@ -5,7 +5,7 @@
 .pc-swatches{display:grid;grid-template-columns:repeat(5,44px);gap:0;max-width:100%;}
 .pc-swatches button{display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:6px;background:transparent;padding:0;cursor:pointer;}
 .pc-swatches button:hover{background:var(--accent)}
-.pc-settings button:focus-visible,.pc-settings input:focus-visible{outline:2px solid var(--ring);outline-offset:2px;}
+.pc-settings button:not(.pc-menu-trigger):focus-visible,.pc-settings input:focus-visible{outline:2px solid var(--ring);outline-offset:2px;}
 .pc-settings button:disabled{opacity:.5;cursor:wait;}
 .pc-swatches span{width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1px #0002;}
 .pc-swatches button[aria-pressed=true] span{outline:2px solid var(--foreground);outline-offset:3px;}
@@ -29,19 +29,20 @@
 .pc-hue input::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:white;border:2px solid #444;}
 
 .pc-menu-surface{width:auto;padding:0;container-type:normal;}
-.pc-menu-anchor{position:relative;}.pc-menu-trigger{display:block;text-align:left;width:100%;border:0;background:transparent;color:inherit;padding:8px 12px;min-height:32px;font:inherit;cursor:pointer;}.pc-menu-trigger:hover,.pc-menu-trigger:focus-visible{background:var(--accent);outline:none;}
-.pc-flyout{position:fixed;z-index:1001;width:336px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;padding:10px;box-sizing:border-box;background:var(--popover,var(--background));color:var(--popover-foreground,var(--foreground));border:1px solid var(--border);border-radius:8px;}
+.pc-menu-anchor{position:relative;}
+.pc-flyout.pc-flyout{position:fixed;z-index:1001;min-width:0;width:336px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:10px;box-sizing:border-box;}/* look (background, border, radius, shadow) comes from the menu's own classes, copied at runtime, like the Icon window */
 .pc-flyout .pc-project-name{display:none;}.pc-flyout .pc-custom{width:100%;}.pc-swatches{display:flex;flex-wrap:nowrap;overflow-x:auto;max-width:100%;gap:0;}.pc-swatches button{width:24px;height:32px;flex:0 0 24px;}.pc-swatches span{width:16px;height:16px;}
 @media(pointer:coarse){.pc-swatches button{width:44px;height:44px;flex-basis:44px;}}
 
-[role="menu"]:has(.pc-menu-anchor){overflow:visible!important;}.pc-flyout{position:absolute;}.pc-menu-trigger{font-size:13px;line-height:20px;padding:4px 12px;}.pc-menu-anchor:has(.pc-flyout)::before{content:"";position:absolute;right:100%;top:-400px;width:12px;height:800px;}
+[role="menu"]:has(.pc-menu-anchor){overflow:visible!important;}.pc-menu-anchor:has(.pc-flyout)::before{content:"";position:absolute;right:100%;top:-400px;width:12px;height:800px;}
 
-.pc-menu-trigger{display:flex;align-items:center;justify-content:space-between;gap:12px;}.pc-submenu-arrow{width:5px;height:5px;border-top:1px solid currentColor;border-right:1px solid currentColor;transform:rotate(45deg);margin-right:4px;}.pc-menu-anchor:has(.pc-flyout)::before{right:auto;left:100%;top:0;height:100%;width:6px;}
+.pc-menu-anchor:has(.pc-flyout)::before{right:auto;left:100%;top:0;height:100%;width:12px;}
 
-.pc-flyout{width:224px;padding:8px;}.pc-menu-icon{width:16px;height:16px;flex:0 0 16px;}.pc-menu-label{flex:1;}.pc-menu-trigger{gap:8px;}.pc-flyout .pc-custom{margin-top:6px;padding:8px;}.pc-flyout .pc-spectrum{height:80px;}.pc-flyout .pc-hue{min-height:30px;}.pc-flyout .pc-hue input{height:30px;}.pc-flyout .pc-rgb{gap:5px;font-size:11px;}.pc-flyout .pc-rgb input{min-height:28px;height:28px;padding:3px;}.pc-flyout .pc-apply{min-height:28px;font-size:12px;}.pc-flyout .pc-swatches{justify-content:flex-start;gap:8px;}
+.pc-flyout.pc-flyout{width:224px;padding:6px;}.pc-flyout .pc-custom{margin-top:6px;padding:8px;}.pc-flyout .pc-spectrum{height:80px;}.pc-flyout .pc-hue{min-height:30px;}.pc-flyout .pc-hue input{height:30px;}.pc-flyout .pc-rgb{gap:5px;font-size:11px;}.pc-flyout .pc-rgb input{min-height:28px;height:28px;padding:3px;}.pc-flyout .pc-apply{min-height:28px;font-size:12px;}.pc-flyout .pc-swatches{justify-content:flex-start;gap:8px;}
 @media(pointer:coarse){.pc-flyout .pc-rgb input,.pc-flyout .pc-apply,.pc-flyout .pc-hue{min-height:44px;}}
-.pc-menu-trigger{padding:3px 8px;min-height:26px;height:26px;line-height:20px;gap:8px;border-radius:4px;}.pc-submenu-arrow{margin-right:2px;}
 
 /* Native Radix siblings may retain data-highlighted after the custom trigger takes focus. */
 [role="menu"].pc-colour-open > [role^="menuitem"]:is([data-highlighted],[data-last-hovered],[data-state="open"]):not(.pc-menu-trigger){background-color:transparent!important;color:inherit;}
-.pc-menu-trigger[aria-expanded="true"]{background:var(--accent);}
+/* "Colour" trigger: look comes entirely from the native submenu item's own utility classes (copied at runtime in app.tsx);
+   only width/alignment live here (no colours, borders or fonts, which would outrank layered utilities), so themes that restyle native items restyle this one too. */
+.pc-menu-trigger{width:100%;text-align:left;}

@@ -1,0 +1,412 @@
+// Server tests. They never read assets/icons: every test builds its own icon
+// folder from the fixtures below, so replacing the shipped set cannot break them.
+import test from "node:test";
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { deflateSync } from "node:zlib";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createPlugin, MIGRATIONS } from "./server";
+import { checkImage, imageSize, sniffImage } from "./image";
+import { loadBundledIcons } from "./bundled";
+import { findCwebp, readImageFile } from "./import-file";
+
+function crc32(bytes: Uint8Array): number {
+  let crc = ~0;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let k = 0; k < 8; k += 1) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  }
+  return ~crc >>> 0;
+}
+
+/** A real RGBA PNG; `alpha` sets the transparency of every pixel. */
+function png(width: number, height: number, alpha = 0x80): Buffer {
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([length, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.set([8, 6, 0, 0, 0], 8);
+  const pixel = Buffer.from([0x40, 0x90, 0xe0, alpha]);
+  const row = Buffer.concat([Buffer.from([0]), Buffer.concat(Array.from({ length: width }, () => pixel))]);
+  const raw = Buffer.concat(Array.from({ length: height }, () => row));
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", header),
+    chunk("IDAT", deflateSync(raw)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+/** Header-only lossless WebP (VP8L) with a correct RIFF length: enough for the byte checks. */
+function webp(width: number, height: number): Buffer {
+  const bits = (width - 1) | ((height - 1) << 14) | (1 << 28); // alpha_is_used
+  const payload = Buffer.alloc(10); // header + a few bytes: files under 30 bytes are not read
+  payload[0] = 0x2f;
+  payload.writeUInt32LE(bits >>> 0, 1);
+  const chunkHeader = Buffer.concat([Buffer.from("VP8L"), Buffer.from([payload.length, 0, 0, 0])]);
+  const body = Buffer.concat([Buffer.from("WEBP"), chunkHeader, payload, Buffer.alloc(payload.length % 2)]);
+  const size = Buffer.alloc(4);
+  size.writeUInt32LE(body.length);
+  return Buffer.concat([Buffer.from("RIFF"), size, body]);
+}
+
+interface Entry {
+  id: string;
+  file: string;
+  name: string;
+  frames?: Record<string, unknown>;
+  group?: string;
+}
+
+/** A plugin folder with assets/icons built from `files` and `entries`. */
+function fixture(files: Record<string, Buffer | string>, entries: Entry[]): { root: string; done(): void } {
+  const root = mkdtempSync(join(tmpdir(), "pi-fixture-"));
+  const folder = join(root, "assets", "icons");
+  mkdirSync(folder, { recursive: true });
+  for (const [name, bytes] of Object.entries(files)) writeFileSync(join(folder, name), bytes);
+  writeFileSync(join(folder, "icons.json"), JSON.stringify(entries));
+  return { root, done: () => rmSync(root, { recursive: true, force: true }) };
+}
+
+/** Two icons; «cat» has all three frames, «dog» has none. */
+function standardFixture() {
+  return fixture(
+    {
+      "cat.png": png(96, 96),
+      "cat.left.png": png(96, 96, 0x10),
+      "cat.right.png": png(96, 96, 0x20),
+      "cat.puzzled.webp": webp(96, 96),
+      "dog.webp": webp(96, 96),
+    },
+    [
+      { id: "cat", file: "cat.png", name: "Кот", frames: { left: "cat.left.png", right: "cat.right.png", puzzled: "cat.puzzled.webp" } },
+      { id: "dog", file: "dog.webp", name: "Пёс", group: "старое поле, игнорируется" },
+    ],
+  );
+}
+
+function host() {
+  return createFakePluginHost({
+    pluginId: "genidev-project-icons",
+    sdk: { projects: { list: async () => [{ id: "p1", name: "Demo" }, { id: "p2", name: "Other" }] as never } },
+  });
+}
+
+test("image checks go by bytes, not by name; WebP must be whole", () => {
+  assert.equal(sniffImage(png(4, 4)), "image/png");
+  assert.equal(sniffImage(Buffer.from([0xff, 0xd8, 0xff, 0xe0])), "image/jpeg");
+  assert.equal(sniffImage(webp(10, 10)), "image/webp");
+  assert.equal(sniffImage(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>')), null);
+  assert.deepEqual(imageSize(png(300, 200), "image/png"), { width: 300, height: 200 });
+  assert.deepEqual(imageSize(webp(96, 80), "image/webp"), { width: 96, height: 80 });
+  const svg = checkImage(Buffer.from('<?xml version="1.0"?><svg/>'));
+  assert.equal(svg.ok, false);
+  assert.match(svg.ok ? "" : svg.message, /SVG/);
+  assert.equal(checkImage(Buffer.from("not an image at all")).ok, false);
+  assert.equal(checkImage(png(600, 10)).ok, false);
+  assert.equal(checkImage(png(96, 96)).ok, true);
+  // WebP: magic bytes, RIFF length equal to the file length, readable size.
+  const good = checkImage(webp(96, 96));
+  assert.deepEqual(good.ok && good.mime, "image/webp");
+  const cut = webp(96, 96).subarray(0, 24);
+  assert.match(checkImage(cut).ok ? "" : (checkImage(cut) as { message: string }).message, /повреждён/);
+  assert.equal(checkImage(Buffer.concat([webp(96, 96), Buffer.alloc(8)])).ok, false);
+  assert.equal(checkImage(webp(600, 96)).ok, false);
+});
+
+test("manifest: frames present, missing, broken; group ignored", () => {
+  const { root, done } = fixture(
+    {
+      "a.png": png(96, 96),
+      "a.left.png": png(96, 96),
+      "a.puzzled.webp": "<svg/>", // broken frame
+      "b.png": png(96, 96),
+      "fake.png": "<svg/>",
+    },
+    [
+      { id: "one", file: "a.png", name: "Один", group: "Пиксельные", frames: { left: "a.left.png", puzzled: "a.puzzled.webp", wink: "a.png", right: "../a.png" } },
+      { id: "two", file: "b.png", name: "Два" },
+      { id: "fake", file: "fake.png", name: "Подделка" },
+      { id: "custom-x", file: "a.png", name: "Чужой префикс" },
+      { id: "missing", file: "nope.png", name: "Нет файла" },
+      { id: "three", file: "b.png", name: "Три", frames: { left: "nope.png" } },
+    ],
+  );
+  try {
+    const loaded = loadBundledIcons(root);
+    assert.deepEqual(loaded.icons.map((icon) => icon.id), ["one", "two", "three"]);
+    const one = loaded.icons[0];
+    assert.deepEqual(Object.keys(one.frames), ["left"], "only the good frame stays");
+    assert.equal("group" in one, false);
+    assert.deepEqual(loaded.icons[1].frames, {});
+    assert.deepEqual(loaded.icons[2].frames, {}, "missing frame file: icon stays, frame skipped");
+    const text = loaded.problems.join("\n");
+    assert.match(text, /one: кадр puzzled/);
+    assert.match(text, /one: неизвестный кадр wink/);
+    assert.match(text, /one: кадр right — недопустимое имя/);
+    assert.match(text, /three: кадр left — нет файла/);
+    assert.equal(loaded.problems.length, 7);
+  } finally {
+    done();
+  }
+});
+
+test("broken frames are logged on load and the icon stays in the library", async () => {
+  const { root, done } = fixture({ "a.png": png(96, 96), "bad.webp": "RIFFxxxxWEBPjunk" }, [
+    { id: "one", file: "a.png", name: "Один", frames: { puzzled: "bad.webp" } },
+  ]);
+  try {
+    const { bb, harness } = host();
+    await createPlugin({ root })(bb);
+    const state: any = await harness.behavior.callRpc("state", null);
+    assert.deepEqual(state.icons.map((icon: any) => [icon.id, icon.frames]), [["one", {}]]);
+    assert.ok(harness.inspection.logEntries.some((entry) => entry.level === "warn" && /кадр puzzled/.test(entry.message)));
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});
+
+test("animation setting is declared, on by default", async () => {
+  const { root, done } = standardFixture();
+  try {
+    const { bb, harness } = host();
+    await createPlugin({ root })(bb);
+    const descriptor: any = (harness.inspection.registrations.settingsDescriptors as any).animation;
+    assert.equal(descriptor.type, "boolean");
+    assert.equal(descriptor.default, true);
+    assert.equal(descriptor.label, "Анимация иконок");
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});
+
+test("RPC: one ordered library, select, validate, add, remove, persist", async () => {
+  const { root, done } = standardFixture();
+  try {
+    const plugin = createPlugin({ root });
+    let { bb, harness } = host();
+    await plugin(bb);
+    const state: any = await harness.behavior.callRpc("state", null);
+    assert.deepEqual(state.icons.map((icon: any) => icon.id), ["cat", "dog"]);
+    const cat = state.icons[0];
+    assert.deepEqual(Object.keys(cat.frames).sort(), ["left", "puzzled", "right"]);
+    assert.match(cat.frames.left, /id=cat&frame=left&v=[0-9a-f]{16}$/);
+    assert.deepEqual(state.icons[1].frames, {});
+    assert.equal("group" in cat, false);
+    assert.deepEqual(state.projects.map((p: any) => p.iconId), [null, null]);
+
+    await harness.behavior.callRpc("setIcon", { projectId: "p1", iconId: "cat" });
+    await assert.rejects(() => harness.behavior.callRpc("setIcon", { projectId: "missing", iconId: "cat" }));
+    await assert.rejects(() => harness.behavior.callRpc("setIcon", { projectId: "p1", iconId: "no-such-icon" }));
+    await assert.rejects(() => harness.behavior.callRpc("setIcon", { projectId: "p1", iconId: "../etc/passwd" }));
+
+    await assert.rejects(() => harness.behavior.callRpc("addIcon", { name: "svg", data: Buffer.from("<svg/>").toString("base64") }));
+    await assert.rejects(() => harness.behavior.callRpc("addIcon", { name: "big", data: png(600, 600).toString("base64") }));
+    // What the picker sends: base64 of a 96×96 WebP (or PNG when the browser cannot write WebP).
+    const first: any = await harness.behavior.callRpc("addIcon", { name: "Первая", data: webp(96, 96).toString("base64") });
+    const second: any = await harness.behavior.callRpc("addIcon", { name: "Вторая", data: png(96, 96).toString("base64") });
+    assert.match(first.id, /^custom-[0-9a-f]{12}$/);
+    assert.deepEqual(first.frames, {});
+    await assert.rejects(() => harness.behavior.callRpc("addIcon", { name: "cut", data: webp(96, 96).subarray(0, 20).toString("base64") }));
+    await harness.behavior.callRpc("setIcon", { projectId: "p2", iconId: first.id });
+
+    harness = (await harness.lifecycle.reload(plugin)).harness;
+    let after: any = await harness.behavior.callRpc("state", null);
+    assert.deepEqual(after.icons.map((icon: any) => icon.id), ["cat", "dog", first.id, second.id], "bundled, then custom in order added");
+    assert.deepEqual(after.projects.map((p: any) => p.iconId), ["cat", first.id]);
+
+    const custom = await harness.behavior.fetchHttp("GET", `/icon?id=${first.id}`);
+    assert.equal(custom.headers.get("content-type"), "image/webp");
+    const old = await harness.behavior.fetchHttp("GET", `/icon?id=${second.id}`);
+    assert.equal(old.headers.get("content-type"), "image/png", "stored PNG pictures keep working");
+
+    const removed: any = await harness.behavior.callRpc("removeIcon", { iconId: first.id });
+    assert.equal(removed.unassigned, 1);
+    await harness.behavior.callRpc("removeIcon", { iconId: second.id });
+    await assert.rejects(() => harness.behavior.callRpc("removeIcon", { iconId: "cat" }));
+    after = await harness.behavior.callRpc("state", null);
+    assert.deepEqual(after.projects.map((p: any) => p.iconId), ["cat", null]);
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});
+
+test("HTTP: main pictures and frames only for library ids and known frame names", async () => {
+  const { root, done } = standardFixture();
+  try {
+    const { bb, harness } = host();
+    await createPlugin({ root })(bb);
+    const ok = await harness.behavior.fetchHttp("GET", "/icon?id=cat");
+    assert.equal(ok.status, 200);
+    assert.equal(ok.headers.get("content-type"), "image/png");
+    assert.equal(ok.headers.get("x-content-type-options"), "nosniff");
+    assert.match(ok.headers.get("cache-control") ?? "", /max-age/);
+
+    const frames: [string, number, string | null][] = [];
+    for (const frame of ["left", "right", "puzzled"]) {
+      const response = await harness.behavior.fetchHttp("GET", `/icon?id=cat&frame=${frame}`);
+      frames.push([frame, response.status, response.headers.get("content-type")]);
+    }
+    assert.deepEqual(frames, [
+      ["left", 200, "image/png"],
+      ["right", 200, "image/png"],
+      ["puzzled", 200, "image/webp"],
+    ]);
+    const left = Buffer.from(await (await harness.behavior.fetchHttp("GET", "/icon?id=cat&frame=left")).arrayBuffer());
+    const main = Buffer.from(await (await harness.behavior.fetchHttp("GET", "/icon?id=cat")).arrayBuffer());
+    assert.notDeepEqual(left, main, "a frame is its own file");
+
+    const refused: Record<string, number> = {};
+    for (const query of [
+      "?id=",
+      "",
+      "?id=..%2F..%2Fpackage.json",
+      "?id=nope",
+      "?id=custom-000000000000",
+      "?id=cat&frame=wink",
+      "?id=cat&frame=",
+      "?id=cat&frame=..%2Fcat.png",
+      "?id=cat&frame=../left",
+      "?id=dog&frame=left",
+      "?id=nope&frame=left",
+    ]) {
+      refused[query] = (await harness.behavior.fetchHttp("GET", `/icon${query}`)).status;
+    }
+    for (const [query, status] of Object.entries(refused)) assert.ok(status === 400 || status === 404, `${query} -> ${status}`);
+    assert.equal(refused["?id=cat&frame=wink"], 400);
+    assert.equal(refused["?id=dog&frame=left"], 404);
+
+    // A custom picture has no frames.
+    const added: any = await harness.behavior.callRpc("addIcon", { name: "x", data: webp(96, 96).toString("base64") });
+    assert.equal((await harness.behavior.fetchHttp("GET", `/icon?id=${added.id}&frame=left`)).status, 404);
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});
+
+test("CLI: list, icons with frames, set, add, remove", async () => {
+  const { root, done } = standardFixture();
+  const dir = mkdtempSync(join(tmpdir(), "pi-cli-"));
+  try {
+    const { bb, harness } = host();
+    await createPlugin({ root })(bb);
+    writeFileSync(join(dir, "wide.png"), png(300, 200));
+    writeFileSync(join(dir, "fake.png"), "<svg xmlns='http://www.w3.org/2000/svg'/>");
+    const icons = JSON.parse((await harness.behavior.runCli(["icons", "--json"])).stdout);
+    assert.deepEqual(icons.map((icon: any) => [icon.id, icon.frames]), [["cat", ["left", "right", "puzzled"]], ["dog", []]]);
+    assert.equal((await harness.behavior.runCli(["set", "p1", "cat"])).exitCode, 0);
+    const list = JSON.parse((await harness.behavior.runCli(["list", "--json"])).stdout);
+    assert.equal(list[0].iconId, "cat");
+
+    const added = await harness.behavior.runCli(["add", "wide.png", "--name", "Широкая", "--json"], { cwd: dir } as never);
+    assert.equal(added.exitCode, 0, added.stderr);
+    const icon = JSON.parse(added.stdout);
+    const fake = await harness.behavior.runCli(["add", join(dir, "fake.png"), "--name", "x"]);
+    assert.notEqual(fake.exitCode, 0);
+    assert.match(fake.stderr, /SVG/);
+
+    assert.equal((await harness.behavior.runCli(["set", "p2", icon.id])).exitCode, 0);
+    const removed = await harness.behavior.runCli(["remove", icon.id, "--json"]);
+    assert.equal(JSON.parse(removed.stdout).unassigned, 1);
+    assert.equal((await harness.behavior.runCli(["set", "p1", "none"])).exitCode, 0);
+    assert.ok(!removed.stdout.includes(dir), "no file paths in output");
+    await harness.lifecycle.dispose();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    done();
+  }
+});
+
+test("add: big JPEG becomes a 96×96 WebP with cwebp, a PNG without it", { skip: process.platform !== "darwin" && "needs sips (macOS)" }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "pi-jpeg-"));
+  try {
+    writeFileSync(join(dir, "big.png"), png(2000, 2000, 0xff));
+    execFileSync("/usr/bin/sips", ["-s", "format", "jpeg", join(dir, "big.png"), "--out", join(dir, "big.jpg")], { stdio: "ignore" });
+    const source = readFileSync(join(dir, "big.jpg"));
+    assert.equal(sniffImage(source), "image/jpeg");
+    assert.deepEqual(imageSize(source, "image/jpeg"), { width: 2000, height: 2000 });
+
+    const withoutCwebp = await readImageFile(join(dir, "big.jpg"), undefined, { findCwebp: async () => null });
+    const png96 = checkImage(withoutCwebp);
+    assert.ok(png96.ok);
+    assert.equal(png96.mime, "image/png");
+    assert.deepEqual(png96.size, { width: 96, height: 96 });
+
+    if (await findCwebp()) {
+      const converted = await readImageFile(join(dir, "big.jpg"), undefined);
+      const webp96 = checkImage(converted);
+      assert.ok(webp96.ok);
+      assert.equal(webp96.mime, "image/webp");
+      assert.deepEqual(webp96.size, { width: 96, height: 96 });
+      assert.ok(converted.length < withoutCwebp.length, `webp ${converted.length} < png ${withoutCwebp.length}`);
+    }
+    // A cwebp that fails leaves the PNG in place.
+    const broken = await readImageFile(join(dir, "big.jpg"), undefined, { findCwebp: async () => "/usr/bin/false" });
+    assert.equal(sniffImage(broken), "image/png");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("findCwebp looks in PATH and the Homebrew folders", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "pi-bin-"));
+  try {
+    writeFileSync(join(dir, "cwebp"), "#!/bin/sh\n", { mode: 0o755 });
+    assert.equal(await findCwebp(dir), join(dir, "cwebp"));
+    const fallback = await findCwebp("relative/dir");
+    assert.ok(fallback === null || /^\/(opt\/homebrew|usr\/local)\/bin\/cwebp$/.test(fallback));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("assignment moment: stored on set, refreshed on re-set, 0 for rows saved before it existed", async () => {
+  const { root, done } = standardFixture();
+  try {
+    const { bb, harness } = host();
+    // The schema as it was in 0.2.0, with one assignment saved then.
+    const handle = bb.storage.database();
+    bb.storage.migrate(handle, MIGRATIONS.slice(0, 2));
+    handle.prepare("INSERT INTO project_icons (project_id, icon_id) VALUES ('p2', 'dog')").run();
+    await createPlugin({ root })(bb);
+
+    let state: any = await harness.behavior.callRpc("state", null);
+    assert.deepEqual(state.projects.map((p: any) => [p.iconId, p.assignedAt]), [[null, 0], ["dog", 0]], "old assignment reads with moment 0");
+
+    const before = Date.now();
+    await harness.behavior.callRpc("setIcon", { projectId: "p1", iconId: "cat" });
+    state = await harness.behavior.callRpc("state", null);
+    const first = state.projects[0].assignedAt;
+    assert.ok(first >= before && first <= Date.now(), "moment of the call");
+    assert.equal(state.projects[1].assignedAt, 0, "other projects keep theirs");
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await harness.behavior.callRpc("setIcon", { projectId: "p1", iconId: "dog" });
+    state = await harness.behavior.callRpc("state", null);
+    assert.ok(state.projects[0].assignedAt > first, "assigning again moves the moment");
+
+    await harness.behavior.callRpc("setIcon", { projectId: "p1", iconId: null });
+    state = await harness.behavior.callRpc("state", null);
+    assert.deepEqual([state.projects[0].iconId, state.projects[0].assignedAt], [null, 0]);
+
+    const list = JSON.parse((await harness.behavior.runCli(["list", "--json"])).stdout);
+    assert.deepEqual(Object.keys(list[0]), ["id", "name", "iconId", "iconName"], "list output is unchanged");
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});

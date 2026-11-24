@@ -632,6 +632,16 @@
   display: none !important;
 }
 
+/* ── bb's "Active child threads" card ───────────────────────────────────────
+   Child threads that do a ticket show under it in this card, so bb's own
+   "Child threads" card above the prompt box goes while this card is up. It
+   stays while a child waits for an answer: its question row is the only way
+   to answer from the parent thread. app.tsx also marks it as not a card for
+   Liquid Glass, which would otherwise draw it as a pill. */
+[data-app-composer]:has([data-tqueue-card]) section[aria-label="Child threads"]:not(:has([data-child-question-row])) {
+  display: none !important;
+}
+
 /* ── Liquid Glass deck ───────────────────────────────────────────────────────
    In the "stack" deck this card opens by its own row and at its own pace, so
    the deck's effects for a tucked card (clip to 38px, lift and grow on hover,

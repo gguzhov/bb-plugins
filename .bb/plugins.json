@@ -50,6 +50,10 @@
     {
       "name": "thread-materials",
       "source": "./plugins/thread-materials"
+    },
+    {
+      "name": "genidev-project-icons",
+      "source": "./plugins/genidev-project-icons"
     }
   ]
 }

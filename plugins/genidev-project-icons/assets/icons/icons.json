@@ -1,0 +1,357 @@
+[
+ {
+  "id": "kitty",
+  "file": "kitty.webp",
+  "name": "Котик",
+  "frames": {
+   "left": "kitty.left.webp",
+   "right": "kitty.right.webp",
+   "puzzled": "kitty.puzzled.webp"
+  }
+ },
+ {
+  "id": "plumber",
+  "file": "plumber.webp",
+  "name": "Водопроводчик",
+  "frames": {
+   "left": "plumber.left.webp",
+   "right": "plumber.right.webp",
+   "puzzled": "plumber.puzzled.webp"
+  }
+ },
+ {
+  "id": "bunny",
+  "file": "bunny.webp",
+  "name": "Зайка",
+  "frames": {
+   "left": "bunny.left.webp",
+   "right": "bunny.right.webp",
+   "puzzled": "bunny.puzzled.webp"
+  }
+ },
+ {
+  "id": "bear",
+  "file": "bear.webp",
+  "name": "Мишка",
+  "frames": {
+   "left": "bear.left.webp",
+   "right": "bear.right.webp",
+   "puzzled": "bear.puzzled.webp"
+  }
+ },
+ {
+  "id": "fox",
+  "file": "fox.webp",
+  "name": "Лисёнок",
+  "frames": {
+   "left": "fox.left.webp",
+   "right": "fox.right.webp",
+   "puzzled": "fox.puzzled.webp"
+  }
+ },
+ {
+  "id": "penguin",
+  "file": "penguin.webp",
+  "name": "Пингвин",
+  "frames": {
+   "left": "penguin.left.webp",
+   "right": "penguin.right.webp",
+   "puzzled": "penguin.puzzled.webp"
+  }
+ },
+ {
+  "id": "frog",
+  "file": "frog.webp",
+  "name": "Лягушонок",
+  "frames": {
+   "left": "frog.left.webp",
+   "right": "frog.right.webp",
+   "puzzled": "frog.puzzled.webp"
+  }
+ },
+ {
+  "id": "owl",
+  "file": "owl.webp",
+  "name": "Совёнок",
+  "frames": {
+   "left": "owl.left.webp",
+   "right": "owl.right.webp",
+   "puzzled": "owl.puzzled.webp"
+  }
+ },
+ {
+  "id": "panda",
+  "file": "panda.webp",
+  "name": "Панда",
+  "frames": {
+   "left": "panda.left.webp",
+   "right": "panda.right.webp",
+   "puzzled": "panda.puzzled.webp"
+  }
+ },
+ {
+  "id": "puppy",
+  "file": "puppy.webp",
+  "name": "Щенок",
+  "frames": {
+   "left": "puppy.left.webp",
+   "right": "puppy.right.webp",
+   "puzzled": "puppy.puzzled.webp"
+  }
+ },
+ {
+  "id": "dino",
+  "file": "dino.webp",
+  "name": "Динозаврик",
+  "frames": {
+   "left": "dino.left.webp",
+   "right": "dino.right.webp",
+   "puzzled": "dino.puzzled.webp"
+  }
+ },
+ {
+  "id": "dragon",
+  "file": "dragon.webp",
+  "name": "Дракончик",
+  "frames": {
+   "left": "dragon.left.webp",
+   "right": "dragon.right.webp",
+   "puzzled": "dragon.puzzled.webp"
+  }
+ },
+ {
+  "id": "bee",
+  "file": "bee.webp",
+  "name": "Пчёлка",
+  "frames": {
+   "left": "bee.left.webp",
+   "right": "bee.right.webp",
+   "puzzled": "bee.puzzled.webp"
+  }
+ },
+ {
+  "id": "doctor",
+  "file": "doctor.webp",
+  "name": "Доктор",
+  "frames": {
+   "left": "doctor.left.webp",
+   "right": "doctor.right.webp",
+   "puzzled": "doctor.puzzled.webp"
+  }
+ },
+ {
+  "id": "sprout",
+  "file": "sprout.webp",
+  "name": "Росток",
+  "frames": {
+   "left": "sprout.left.webp",
+   "right": "sprout.right.webp",
+   "puzzled": "sprout.puzzled.webp"
+  }
+ },
+ {
+  "id": "analyst",
+  "file": "analyst.webp",
+  "name": "Аналитик",
+  "frames": {
+   "left": "analyst.left.webp",
+   "right": "analyst.right.webp",
+   "puzzled": "analyst.puzzled.webp"
+  }
+ },
+ {
+  "id": "coin",
+  "file": "coin.webp",
+  "name": "Монетка",
+  "frames": {
+   "left": "coin.left.webp",
+   "right": "coin.right.webp",
+   "puzzled": "coin.puzzled.webp"
+  }
+ },
+ {
+  "id": "coder",
+  "file": "coder.webp",
+  "name": "Кодер",
+  "frames": {
+   "left": "coder.left.webp",
+   "right": "coder.right.webp",
+   "puzzled": "coder.puzzled.webp"
+  }
+ },
+ {
+  "id": "megaphone",
+  "file": "megaphone.webp",
+  "name": "Рупор",
+  "frames": {
+   "left": "megaphone.left.webp",
+   "right": "megaphone.right.webp",
+   "puzzled": "megaphone.puzzled.webp"
+  }
+ },
+ {
+  "id": "camera",
+  "file": "camera.webp",
+  "name": "Камера",
+  "frames": {
+   "left": "camera.left.webp",
+   "right": "camera.right.webp",
+   "puzzled": "camera.puzzled.webp"
+  }
+ },
+ {
+  "id": "rocket",
+  "file": "rocket.webp",
+  "name": "Ракета",
+  "frames": {
+   "left": "rocket.left.webp",
+   "right": "rocket.right.webp",
+   "puzzled": "rocket.puzzled.webp"
+  }
+ },
+ {
+  "id": "bulb",
+  "file": "bulb.webp",
+  "name": "Идея",
+  "frames": {
+   "left": "bulb.left.webp",
+   "right": "bulb.right.webp",
+   "puzzled": "bulb.puzzled.webp"
+  }
+ },
+ {
+  "id": "mushroom",
+  "file": "mushroom.webp",
+  "name": "Грибок",
+  "frames": {
+   "left": "mushroom.left.webp",
+   "right": "mushroom.right.webp",
+   "puzzled": "mushroom.puzzled.webp"
+  }
+ },
+ {
+  "id": "armor-hero",
+  "file": "armor-hero.webp",
+  "name": "Герой в броне"
+ },
+ {
+  "id": "captain",
+  "file": "captain.webp",
+  "name": "Капитан",
+  "frames": {
+   "left": "captain.left.webp",
+   "right": "captain.right.webp",
+   "puzzled": "captain.puzzled.webp"
+  }
+ },
+ {
+  "id": "thunder",
+  "file": "thunder.webp",
+  "name": "Громовержец",
+  "frames": {
+   "left": "thunder.left.webp",
+   "right": "thunder.right.webp",
+   "puzzled": "thunder.puzzled.webp"
+  }
+ },
+ {
+  "id": "strongman",
+  "file": "strongman.webp",
+  "name": "Зелёный силач",
+  "frames": {
+   "left": "strongman.left.webp",
+   "right": "strongman.right.webp",
+   "puzzled": "strongman.puzzled.webp"
+  }
+ },
+ {
+  "id": "mask-hero",
+  "file": "mask-hero.webp",
+  "name": "Герой в маске",
+  "frames": {
+   "left": "mask-hero.left.webp",
+   "right": "mask-hero.right.webp",
+   "puzzled": "mask-hero.puzzled.webp"
+  }
+ },
+ {
+  "id": "night-guard",
+  "file": "night-guard.webp",
+  "name": "Ночной страж",
+  "frames": {
+   "left": "night-guard.left.webp",
+   "right": "night-guard.right.webp",
+   "puzzled": "night-guard.puzzled.webp"
+  }
+ },
+ {
+  "id": "astronaut",
+  "file": "astronaut.webp",
+  "name": "Космонавт",
+  "frames": {
+   "left": "astronaut.left.webp",
+   "right": "astronaut.right.webp",
+   "puzzled": "astronaut.puzzled.webp"
+  }
+ },
+ {
+  "id": "ball-rabbit",
+  "file": "ball-rabbit.webp",
+  "name": "Кролик",
+  "frames": {
+   "left": "ball-rabbit.left.webp",
+   "right": "ball-rabbit.right.webp",
+   "puzzled": "ball-rabbit.puzzled.webp"
+  }
+ },
+ {
+  "id": "ball-hedgehog",
+  "file": "ball-hedgehog.webp",
+  "name": "Ёжик",
+  "frames": {
+   "left": "ball-hedgehog.left.webp",
+   "right": "ball-hedgehog.right.webp",
+   "puzzled": "ball-hedgehog.puzzled.webp"
+  }
+ },
+ {
+  "id": "ball-piglet",
+  "file": "ball-piglet.webp",
+  "name": "Свинка",
+  "frames": {
+   "left": "ball-piglet.left.webp",
+   "right": "ball-piglet.right.webp",
+   "puzzled": "ball-piglet.puzzled.webp"
+  }
+ },
+ {
+  "id": "ball-ram",
+  "file": "ball-ram.webp",
+  "name": "Барашек",
+  "frames": {
+   "left": "ball-ram.left.webp",
+   "right": "ball-ram.right.webp",
+   "puzzled": "ball-ram.puzzled.webp"
+  }
+ },
+ {
+  "id": "ball-moose",
+  "file": "ball-moose.webp",
+  "name": "Лось",
+  "frames": {
+   "left": "ball-moose.left.webp",
+   "right": "ball-moose.right.webp",
+   "puzzled": "ball-moose.puzzled.webp"
+  }
+ },
+ {
+  "id": "ball-pilot",
+  "file": "ball-pilot.webp",
+  "name": "Пингвин-лётчик",
+  "frames": {
+   "left": "ball-pilot.left.webp",
+   "right": "ball-pilot.right.webp",
+   "puzzled": "ball-pilot.puzzled.webp"
+  }
+ }
+]

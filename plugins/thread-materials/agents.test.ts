@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyEvents, deriveSubagents, emptyLog, formatDuration, formatTokens, formatCalls, metaParts, modelLabel, parseDetail, resolveModel, sortExecutors, ticketCode, threadState, type Executor, type ThreadEvent } from "./agents.ts";
+import { applyEvents, deriveSubagents, executorCounts, executorSummary, emptyLog, formatDuration, formatTokens, formatCalls, metaParts, modelLabel, parseDetail, resolveModel, sortExecutors, ticketCode, threadState, type Executor, type ThreadEvent } from "./agents.ts";
 
 let seq = 0;
 const ev = (type: string, at: number, item: Record<string, unknown>): ThreadEvent => ({ seq: ++seq, type, createdAt: at, data: { item } });
@@ -176,4 +176,29 @@ test("live clock and elapsed time; English units", () => {
  assert.equal(formatTokens(120_400, "en"), "120k tokens");
  assert.equal(formatCalls(1, "en"), "1 tool call");
  assert.equal(resolveModel({ model: null, modelSource: "inherited", leaderModel: "claude-opus-5-5" }, null, "en")?.label, "same as lead (Opus 5.5)");
+});
+
+test("executorCounts and executorSummary: sets of states, both languages, both forms", () => {
+ const mk = (...states: Executor["state"][]) => states.map(state => ({ state }));
+ const text = (list: ReturnType<typeof mk>, lang: "ru" | "en", form: "short" | "long") => executorSummary(executorCounts(list), lang, form).map(p => p.text).join(" · ");
+ const idle = mk("done", "done", "done", "done", "done");
+ assert.deepEqual(executorCounts(idle), { running: 0, done: 5, error: 0, stopped: 0, total: 5 });
+ assert.equal(text(idle, "ru", "short"), "5 завершили");
+ assert.equal(text(idle, "en", "short"), "5 finished");
+ assert.equal(text(idle, "ru", "long"), "Завершили 5");
+ const busy = mk("running", "running", "done", "done", "done", "done", "done");
+ assert.equal(text(busy, "ru", "short"), "2 в работе · 5 завершили");
+ assert.equal(text(busy, "en", "short"), "2 running · 5 finished");
+ assert.equal(text(busy, "ru", "long"), "В работе 2 · Завершили 5");
+ assert.equal(text(busy, "en", "long"), "Running 2 · Finished 5");
+ const bad = mk("running", "done", "error");
+ assert.equal(text(bad, "ru", "short"), "1 в работе · 1 завершили · 1 с ошибкой");
+ assert.equal(text(bad, "ru", "long"), "В работе 1 · Завершили 1 · С ошибкой 1");
+ assert.equal(text(bad, "en", "long"), "Running 1 · Finished 1 · Failed 1");
+ assert.deepEqual(executorSummary(executorCounts(bad), "ru").map(p => p.state), ["running", "done", "error"]);
+ assert.equal(text(mk("stopped"), "ru", "short"), "1 остановлен");
+ assert.equal(text(mk("stopped", "stopped"), "ru", "short"), "2 остановлено");
+ assert.equal(text(mk("stopped"), "en", "short"), "1 stopped");
+ assert.deepEqual(executorCounts([]), { running: 0, done: 0, error: 0, stopped: 0, total: 0 });
+ assert.deepEqual(executorSummary(executorCounts([]), "ru"), []);
 });

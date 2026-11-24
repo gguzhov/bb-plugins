@@ -5,13 +5,14 @@ import { execFile } from "node:child_process";
 import { open, lstat } from "node:fs/promises";
 import { join } from "node:path";
 
+export type GitCommit = { hash: string; subject: string };
 export type FileCount = { path: string; added: number | null; removed: number | null };
 export type GitChanges =
- | { kind: "ok"; branch: string; base: "upstream" | "merge-base" | "head"; baseRef: string | null; added: number; removed: number; files: number; uncommitted: { added: number; removed: number; files: number }; unpushedCommits: number; truncated: boolean; elapsedMs: number; top?: FileCount[] }
+ | { kind: "ok"; branch: string; base: "upstream" | "merge-base" | "head"; baseRef: string | null; added: number; removed: number; files: number; uncommitted: { added: number; removed: number; files: number }; unpushedCommits: number; truncated: boolean; elapsedMs: number; top?: FileCount[]; recentCommits?: GitCommit[] }
  | { kind: "not-git" }
  | { kind: "error"; message: string };
 
-export const GIT_COMMANDS = ["rev-parse", "symbolic-ref", "merge-base", "rev-list", "diff", "ls-files"] as const;
+export const GIT_COMMANDS = ["rev-parse", "symbolic-ref", "merge-base", "rev-list", "diff", "ls-files", "log"] as const;
 export const UNTRACKED_FILE_LIMIT = 2000;
 export const UNTRACKED_BYTES_LIMIT = 1024 * 1024;
 const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
@@ -103,13 +104,21 @@ export async function gitChanges(cwd: string, options: Options = {}): Promise<Gi
  }
 
  // Final state of the working folder (index + work tree) against the base: a file changed in a commit and again on disk counts once.
- const [total, uncommitted, untrackedList, commits] = await Promise.all([
+ const [total, uncommitted, untrackedList, commits, history] = await Promise.all([
   git(root, ["diff", "--numstat", "-z", "--no-renames", "--no-ext-diff", "--no-textconv", baseSha], deadline),
   hasHead ? git(root, ["diff", "--numstat", "-z", "--no-renames", "--no-ext-diff", "--no-textconv", "HEAD"], deadline) : Promise.resolve({ ok: true, out: "" }),
   git(root, ["ls-files", "--others", "--exclude-standard", "-z"], deadline),
   hasHead && baseSha !== head.out.trim() ? git(root, ["rev-list", "--count", baseSha + "..HEAD"], deadline) : Promise.resolve({ ok: true, out: "0" }),
+  hasHead ? git(root, ["log", "--no-show-signature", "--no-notes", "--encoding=UTF-8", "-z", "-n", "20", "--format=%h%x00%s", head.out.trim(), "--"], deadline) : Promise.resolve({ ok: true, out: "" }),
  ]);
  if (!total.ok || !untrackedList.ok) return { kind: "error", message: Date.now() >= deadline ? "git did not answer in time" : "git diff failed" };
+ const recentCommits: GitCommit[] = [];
+ if (history.ok) {
+  const fields = history.out.split("\0");
+  for (let i = 0; i + 1 < fields.length; i += 2) {
+   if (fields[i]) recentCommits.push({ hash: fields[i]!, subject: fields[i + 1]!.slice(0, 240) });
+  }
+ }
  const tracked = parseNumstat(total.out);
  const local = parseNumstat(uncommitted.out);
  const untracked = untrackedList.out.split("\0").filter(Boolean);
@@ -124,6 +133,7 @@ export async function gitChanges(cwd: string, options: Options = {}): Promise<Gi
   added: t.added + newLines, removed: t.removed, files,
   uncommitted: { added: u.added + newLines, removed: u.removed, files: new Set([...local.keys(), ...counted]).size },
   unpushedCommits: Number(commits.out.trim()) || 0,
+  recentCommits: history.ok ? recentCommits : undefined,
   truncated,
   elapsedMs: Date.now() - started,
   top: topFiles(tracked, counted.map((p, i) => [p, lines[i] ?? null] as [string, number | null])),

@@ -18,11 +18,11 @@ export function useThumbnail(href:string,item:Material,threadId:string,enabled=t
 export const isImageHref=(href:string)=>!/^https?:/i.test(href)&&/\.(png|jpe?g|webp)$/i.test(href);
 export function MaterialIcon({href,item,threadId,compact=false}:{href:string;item:Material;threadId:string;compact?:boolean}){
  const thumbnail=useThumbnail(href,item,threadId);
- if(thumbnail)return <img className="tm-thumbnail" src={thumbnail} alt="" aria-hidden="true"/>;
+ if(thumbnail)return <img className="tm-thumbnail" title={item.title} src={thumbnail} alt="" aria-hidden="true"/>;
  let service:keyof typeof googleIcons|null=null;
  try{const u=new URL(href);if(u.hostname==='drive.google.com')service='drive';else if(u.hostname==='docs.google.com')service=u.pathname.startsWith('/spreadsheets/')?'sheets':u.pathname.startsWith('/presentation/')?'slides':'docs';}catch{}
- if(service)return <span className="tm-file-icon"><img src={googleIcons[service]} alt="" aria-hidden="true"/></span>;
+ if(service)return <span className="tm-file-icon" title={item.title}><img src={googleIcons[service]} alt="" aria-hidden="true"/></span>;
  const ext=(href.split(/[?#]/)[0].match(/\.([a-z0-9]{2,5})(?::\d+)?$/i)?.[1]||'').toUpperCase();
- if(compact)return <span className={'tm-file-icon tm-file-'+ext.toLowerCase()} aria-hidden="true"><Icon name={href.startsWith('http')?'Link':/^(PNG|JPE?G|WEBP|GIF)$/.test(ext)?'Image':'FileText'}/></span>;
- return <span className={'tm-file-icon tm-file-'+ext.toLowerCase()} aria-hidden="true">{ext?<span>{ext==='JPEG'?'JPG':ext}</span>:<Icon name={href.startsWith('http')?'Link':'FileText'}/>}</span>;
+ if(compact)return <span className={'tm-file-icon tm-file-'+ext.toLowerCase()} title={item.title} aria-hidden="true"><Icon name={href.startsWith('http')?'Link':/^(PNG|JPE?G|WEBP|GIF)$/.test(ext)?'Image':'FileText'}/></span>;
+ return <span className={'tm-file-icon tm-file-'+ext.toLowerCase()} title={item.title} aria-hidden="true">{ext?<span>{ext==='JPEG'?'JPG':ext}</span>:<Icon name={href.startsWith('http')?'Link':'FileText'}/>}</span>;
 }

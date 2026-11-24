@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { definePluginApp,useRpc,useRealtime,useBbNavigate,useSettings, experimental_usePanelTabs, experimental_useAppPanel, experimental_useFixedTabTarget, Markdown, experimental_FileLink as FileLink, experimental_FilePreview as FilePreview, experimental_InfoSection as InfoSection, experimental_InfoList as InfoList, experimental_InfoListRow as InfoListRow, UrlLink, type ExperimentalThreadActionTabProps, type ExperimentalThreadTabProps } from "@get-bb/plugin-sdk/app";
 import { isPreviewPayload, previewRequest, sidecarPath, type PreviewPayload } from "./preview-target";
 import type { PluginFileOpenerProps } from "@get-bb/plugin-sdk/app";
@@ -11,7 +11,8 @@ import {MaterialIcon} from "./MaterialIcon";
 import {cardChrome} from "./card-chrome";
 import {MaterialDialog} from "./MaterialDialog";
 import {dict, displayAgentName, resolveLang, type Dict, type Lang} from "./i18n";
-import {ChatWidget, type GitState} from "./widget";
+import {ChatWidget, GitCommitList, type GitState} from "./widget";
+import {isSectionId, type SectionId} from "./widget-state";
 type Snapshot={materials:Material[];archived:Material[];executors:Executor[];leaderModel:string|null;executorsPartial:boolean;hasMore:boolean;childrenTruncated:boolean;hostId:string|null;notice:string;tickets:PlanTicket[]};
 /** Interface language from the plugin's `language` setting; auto follows the page, then the browser. */
 function useLang():{lang:Lang;t:Dict}{
@@ -87,15 +88,15 @@ function useOpenChanges(){
  };
 }
 /** The panel's git row (bb's Info-list row look). */
-function GitLine({threadId,visibleRef,t}:{threadId:string;visibleRef:{current:boolean};t:Dict}){
- const git=useGit(threadId,visibleRef);const self=useRef<HTMLUListElement>(null);const openChanges=useOpenChanges();
+function GitLine({git,t}:{git:GitState;t:Dict}){
+ const self=useRef<HTMLUListElement>(null);const openChanges=useOpenChanges();
  const plain=(text:string,title?:string)=><ul className="tm-ul"><InfoListRow leading={<Icon name="GitBranch" aria-hidden/>} name={<span className="tm-git-muted">{text}</span>} title={title}/></ul>;
  if(!git)return plain(t.gitLoading);if(git.kind==="not-git")return plain(t.notGit);if(git.kind==="no-env")return plain(t.noEnv);if(git.kind==="error")return plain(t.gitError,git.message);
  const ge=git.truncated?"≥":"";const clean=git.files===0&&git.unpushedCommits===0;
  const hint=t.gitHint({added:git.uncommitted.added,removed:git.uncommitted.removed,commits:git.unpushedCommits,base:git.base,baseRef:git.baseRef,truncated:git.truncated});
  return <ul ref={self} className="tm-ul"><InfoListRow leading={<Icon name="GitBranch" aria-hidden/>} name={git.branch} title={hint+" · "+t.openChanges} trailing={clean?<span className="tm-git-muted">{t.noChanges}</span>:<span className="tm-git-stats"><span className="tm-git-add">{ge}+{git.added}</span><span className="tm-git-del">{ge}−{git.removed}</span><span className="tm-git-muted">{ge}{t.files(git.files)}</span></span>} onSelect={()=>openChanges(self.current)}/></ul>;
 }
-const tab={id:"materials",context:{kind:"thread" as const},availability:"fixed" as const};
+const tab={id:"materials",context:{kind:"thread" as const},availability:"fixed" as const,experimental_target:{validate:isSectionId}};
 const previewTab={id:"file-preview",context:{kind:"thread" as const},availability:"fixed" as const,experimental_target:{validate:isPreviewPayload}};
 function PreviewBody({path,content,url}:{path:string;content:string;url:string}){
  const ext=path.split(".").pop()?.toLowerCase()||"";
@@ -129,21 +130,21 @@ function MaterialLink({item,threadId,hostId,t,bare=false}:{item:Material;threadI
  const openMaterial=useOpenMaterial(threadId,hostId);
  const request=previewRequest(item,threadId,hostId);
  const icon=bare?null:<MaterialIcon href={item.href} item={item} threadId={threadId}/>,name=<span className="tm-file-name">{item.title}</span>;
- if(/^https?:\/\//i.test(item.href))return <UrlLink className="tm-file" href={item.href} title={item.href}>{icon}{name}</UrlLink>;
+ if(/^https?:\/\//i.test(item.href))return <UrlLink className="tm-file" href={item.href} title={item.title}>{icon}{name}</UrlLink>;
  if(!request)return <span className="tm-file" title={t.noEnvironment}>{icon}{name}</span>;
  const file=request;
  function open(event:MouseEvent<HTMLAnchorElement>){
   if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
   event.preventDefault();openMaterial(item);
  }
- return <FileLink className="tm-file" target={file.target} location={file.location} title={item.href} aria-label={t.previewAria(item.title)} onClick={open}>{icon}{name}</FileLink>;
+ return <FileLink className="tm-file" target={file.target} location={file.location} title={item.title} aria-label={t.previewAria(item.title)} onClick={open}>{icon}{name}</FileLink>;
 }
 function Materials({threadId,environment,widget=false,archiveOnly=false}:ExperimentalThreadTabProps & {widget?:boolean;archiveOnly?:boolean}){
  const rpc=useRpc<typeof rpcContract>(),navigate=useBbNavigate(),panel=experimental_useAppPanel();const {lang,t}=useLang();
  const panelState=experimental_usePanelTabs(); const visibleRef=useRef(true);
+ const sectionTarget=experimental_useFixedTabTarget<SectionId>(tab);
  visibleRef.current=widget ? !panelState.open : panelState.open && panelState.tabs.some(t=>t.key===panelState.selectedKey && t.detail.kind==="plugin" && t.detail.pluginId==="thread-materials");
  const [data,setData]=useState<Snapshot|null>(()=>(snapMemo.get(threadId+":1")?.data as Snapshot|undefined)??null),[error,setError]=useState(""),[pages,setPages]=useState(1),[busy,setBusy]=useState(false);
- const [adding,setAdding]=useState<Material["group"]|null>(null),[title,setTitle]=useState(""),[href,setHref]=useState(""),[saving,setSaving]=useState(false);
  const [removing,setRemoving]=useState<Material|null>(null),[actionBusy,setActionBusy]=useState(false),[actionError,setActionError]=useState("");
 
  const openArchive=()=>{panel.openTab({tab:{id:"archive",context:{kind:"thread"},availability:"action"},title:t.archive});};
@@ -158,19 +159,13 @@ function Materials({threadId,environment,widget=false,archiveOnly=false}:Experim
  const live=widget&&!!data?.executors.some(x=>x.state==="running");
  useEffect(()=>{generation.current++;inflight.current=false;const m=snapMemo.get(threadId+":"+pages);setData((m?.data as Snapshot|undefined)??null);if(visibleRef.current&&(!m||Date.now()-m.at>10000))void load();else if(!visibleRef.current)stale.current=true;return()=>{generation.current++;};},[load]);
  useEffect(()=>{const timer=setInterval(()=>{if(!document.hidden && visibleRef.current)void load();},live?4000:10000);return()=>clearInterval(timer);},[load,live]);
- useEffect(()=>{setAdding(null);setTitle("");setHref("");setPages(1);setRemoving(null);setActionError("");},[threadId]);
+ useEffect(()=>{setPages(1);setRemoving(null);setActionError("");},[threadId]);
 
  // Signals for this thread only (bb publishes them for every thread's turn); hidden: reread when shown.
  useRealtime("changed",payload=>{if(!forThread(payload,threadId))return;if(visibleRef.current)void load();else stale.current=true;});
  const visibleNow=visibleRef.current;
  useEffect(()=>{if(visibleNow&&stale.current){stale.current=false;void load();}},[visibleNow,load]);
- const git=useGit(threadId,visibleRef);const openChanges=useOpenChanges();const openMaterial=useOpenMaterial(threadId,data?.hostId??null);
- async function submit(e:FormEvent){e.preventDefault();if(!adding||saving)return;setSaving(true);try{await rpc.call("add",{threadId,title,href,group:adding});setAdding(null);setTitle("");setHref("");void load();}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setSaving(false);}}
- const addForm=(group:Material["group"])=>adding===group&&<form onSubmit={submit} className="tm-form">
-  <label>{t.title}<input autoFocus required maxLength={240} value={title} onChange={e=>setTitle(e.target.value)}/></label>
-  <label>{t.hrefLabel}<input required maxLength={4096} value={href} onChange={e=>setHref(e.target.value)}/></label>
-  <div className="tm-form-actions"><button type="submit" disabled={saving}>{saving?t.saving:t.add}</button><button type="button" onClick={()=>setAdding(null)}>{t.cancel}</button></div>
- </form>;
+ const git=useGit(threadId,visibleRef);const openMaterial=useOpenMaterial(threadId,data?.hostId??null);
  const archivedRows=(entries:Material[])=>!entries.length?<p className="tm-empty">{t.archiveEmpty}</p>:<ul className="tm-wlist">{entries.map(item=><li key={item.id}>
   <MaterialLink item={item} threadId={threadId} hostId={data?.hostId??null} t={t}/>
   <button type="button" className="tm-textact" disabled={actionBusy} onClick={async()=>{
@@ -180,37 +175,36 @@ function Materials({threadId,environment,widget=false,archiveOnly=false}:Experim
    finally{setActionBusy(false);}
   }}>{t.restore}</button>
  </li>)}</ul>;
- const widgetActions=(group:Material["group"])=>{
-  const archived=data?.archived.filter(item=>item.group===group)??[];
-  return <>
-   <button type="button" className="tm-textact" aria-expanded={adding===group} onClick={()=>setAdding(adding===group?null:group)}><Icon name="Plus"/>{t.add}</button>
-   {addForm(group)}
-   <details className="tm-archive"><summary>{t.archiveCount(archived.length)}</summary>{archivedRows(archived)}</details>
-  </>;
- };
  function panelList(group:Material["group"]){
   const entries=data?.materials.filter(x=>x.group===group)||[],name=group==="result"?t.results:t.sources;
   const archived=data?.archived?.length||0,archiveLabel=t.archiveCount(archived);
-  const actions=group==="result"?<span className="tm-actions"><button type="button" className="tm-textact" aria-label={t.add+": "+name} title={t.addTitle} aria-pressed={adding===group} onClick={()=>setAdding(adding===group?null:group)}><Icon name="Plus"/>{t.add}</button><button type="button" className="tm-textact" title={archiveLabel} onClick={openArchive}>{archiveLabel}</button></span>:undefined;
-  return <InfoSection label={name} count={entries.length||undefined} trailing={actions}>
-   {addForm(group)}
+  const archive=group==="result"?<button type="button" className="tm-textact" title={archiveLabel} onClick={openArchive}>{archiveLabel}</button>:undefined;
+  return <InfoSection label={name} count={entries.length||undefined} trailing={archive}>
    {!data?<p className="tm-empty" role="status">{t.loading}</p>:!entries.length?<p className="tm-empty">{group==="result"?t.emptyResults:t.emptySources}</p>:<InfoList items={entries} limit={PANEL_ROWS} getKey={item=>item.id} renderItem={item=><InfoListRow leading={<MaterialIcon compact href={item.href} item={item} threadId={threadId}/>} name={<MaterialLink item={item} threadId={threadId} hostId={data.hostId} t={t} bare/>} trailing={(!item.originThreadId||item.originThreadId===threadId)?<button type="button" className="tm-act tm-row-act" aria-label={t.removeAria(item.title)} title={t.remove} onClick={()=>{setActionError("");setRemoving(item);}}><Icon name="X"/></button>:undefined}/>}/>}
   </InfoSection>;
  }
  const native=!widget&&!archiveOnly;
  const rootRef=useRef<HTMLDivElement>(null);
+ useEffect(()=>{
+  if(!native||!visibleNow||!sectionTarget)return;
+  const frame=requestAnimationFrame(()=>rootRef.current?.querySelector('[data-tm-section="'+sectionTarget.target+'"]')?.scrollIntoView({block:"start"}));
+  return ()=>cancelAnimationFrame(frame);
+ },[native,visibleNow,sectionTarget,!!data]);
  if(widget && panelState.open) return null;
  const errorBox=error?<div role="alert" className="tm-error">{t.updateFailed}{error}<button onClick={()=>void load()}>{t.retry}</button></div>:null;
  return <div ref={rootRef} lang={lang} data-bb-plugin="thread-materials" data-bb-plugin-root="thread-materials" className={widget?"tm-panel tm-widget":native?"tm-info":"tm-panel"}>
  {!widget&&errorBox}
  {native&&<>
- <GitLine threadId={threadId} visibleRef={visibleRef} t={t}/>
+ <div data-tm-section="git">
+  <GitLine git={git} t={t}/>
+  {git?.kind==="ok"&&<GitCommitList commits={git.recentCommits} t={t}/>}
+ </div>
  <div data-tm-section="result">{panelList("result")}</div>
  <div data-tm-section="agents"><PanelExecutors data={data} lang={lang} t={t}/></div>
  <div data-tm-section="source">{panelList("source")}</div>
  </>}
  {widget&&<ChatWidget threadId={threadId} data={data} git={git} lang={lang} t={t} visible={visibleNow} error={errorBox}
-  openChanges={()=>openChanges(rootRef.current)} materialActions={widgetActions} openThread={id=>navigate.toThread(id)} showInChat={showInChat}
+  openAll={section=>{panel.openTab({tab,target:section});}} openThread={id=>navigate.toThread(id)} showInChat={showInChat}
   openMaterial={openMaterial} onRemove={item=>{setActionError("");setRemoving(item);}} renderLink={item=><MaterialLink item={item} threadId={threadId} hostId={data?.hostId??null} t={t}/>}/>}
  {archiveOnly&&<section className="tm-archive"><h2>{t.archive}</h2>{archivedRows(data?.archived??[])}</section>}
 
