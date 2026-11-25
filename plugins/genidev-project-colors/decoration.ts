@@ -9,7 +9,9 @@ export function decorateProjects(signal:AbortSignal){
  const labels=new Map<HTMLElement,HTMLElement>();const headers=new Map<HTMLElement,HTMLElement>();
  const labelFor=(el:HTMLElement)=>el.querySelector<HTMLElement>('[data-sidebar-rename-anchor][aria-expanded]:not([aria-haspopup])')?.previousElementSibling as HTMLElement|null;
  const clear=(label:HTMLElement)=>{label.classList.remove('pc-project-label');label.style.removeProperty('--pc-color');label.removeAttribute('data-pc-chosen-at');};
- const clearHeader=(header:HTMLElement)=>{header.classList.remove('pc-project-header');header.style.removeProperty('--pc-color');};
+ // The row is rounded (rounded-md) and bb uses its ::before/::after and background-image, so the full-width line is a child element of its own.
+ const clearHeader=(header:HTMLElement)=>{header.classList.remove('pc-project-header');header.style.removeProperty('--pc-color');header.querySelector(':scope > .pc-header-line')?.remove();};
+ const ensureLine=(header:HTMLElement)=>{if(header.lastElementChild?.classList.contains('pc-header-line'))return;header.querySelector(':scope > .pc-header-line')?.remove();const line=document.createElement('span');line.className='pc-header-line';line.setAttribute('aria-hidden','true');header.append(line);};
  const apply=()=>{
   frame=0;
   for(const[el,label]of labels)if(!el.isConnected||label!==labelFor(el)){clear(label);labels.delete(el);}
@@ -19,7 +21,7 @@ export function decorateProjects(signal:AbortSignal){
    labels.set(el,label);label.classList.toggle('pc-project-label',project.color!==null);
    if(project.chosenAt!=null){if(label.getAttribute('data-pc-chosen-at')!==String(project.chosenAt))label.setAttribute('data-pc-chosen-at',String(project.chosenAt));}else label.removeAttribute('data-pc-chosen-at');
    const color=project.color??'transparent';if(label.style.getPropertyValue('--pc-color')!==color)label.style.setProperty('--pc-color',color);
-   const header=headerFor(label);if(header){headers.set(el,header);header.classList.toggle('pc-project-header',project.color!==null);if(header.style.getPropertyValue('--pc-color')!==color)header.style.setProperty('--pc-color',color);}
+   const header=headerFor(label);if(header){headers.set(el,header);header.classList.toggle('pc-project-header',project.color!==null);ensureLine(header);if(header.style.getPropertyValue('--pc-color')!==color)header.style.setProperty('--pc-color',color);}
   }
  };
  const schedule=()=>{if(!frame&&!signal.aborted)frame=requestAnimationFrame(apply);};

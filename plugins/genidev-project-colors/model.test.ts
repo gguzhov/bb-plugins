@@ -62,12 +62,13 @@ test('header row gets the colour for the full-width underline and is cleaned up'
  const row=()=>document.querySelector<HTMLElement>('.row')!;
  send('#28A99C');await settle();
  assert(row().classList.contains('pc-project-header'));assert.equal(row().style.getPropertyValue('--pc-color'),'#28A99C');
+ assert.equal(row().querySelectorAll(':scope > .pc-header-line').length,1);assert.equal(row().lastElementChild!.className,'pc-header-line');
  assert.equal(document.querySelectorAll('.pc-project-header').length,1);assert(!document.querySelector('.mt-1')!.classList.contains('pc-project-header'));
  send(null);await settle();assert(!row().classList.contains('pc-project-header'));
  send('#28A99C');await settle();
  document.querySelector('[data-sidebar-rename-row]')!.innerHTML=header;send('#4F8FF7');await settle();
- assert.equal(row().style.getPropertyValue('--pc-color'),'#4F8FF7');assert.equal(document.querySelectorAll('.pc-project-header').length,1);
- ctrl.abort();cleanup();assert.equal(document.querySelectorAll('.pc-project-header').length,0);assert.equal(row().style.getPropertyValue('--pc-color'),'');dom.window.close();
+ assert.equal(row().style.getPropertyValue('--pc-color'),'#4F8FF7');assert.equal(row().querySelectorAll('.pc-header-line').length,1);assert.equal(document.querySelectorAll('.pc-project-header').length,1);
+ ctrl.abort();cleanup();assert.equal(document.querySelectorAll('.pc-project-header').length,0);assert.equal(row().style.getPropertyValue('--pc-color'),'');assert.equal(document.querySelectorAll('.pc-header-line').length,0);dom.window.close();
 });
 test('full-width setting is registered and off by default',async()=>{
  const {bb,harness}=createFakePluginHost({pluginId:'genidev-project-colors',sdk:{projects:{list:async()=>[] as any}}});
