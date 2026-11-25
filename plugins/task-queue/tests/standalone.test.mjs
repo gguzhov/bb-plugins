@@ -26,6 +26,46 @@ test("the package declares no other plugin as a requirement", () => {
   assert.doesNotMatch(JSON.stringify(pkg), /background-peek/i);
 });
 
+test("every other banner above the plan card goes, except an item with a child's question", () => {
+  const css = read("../app.css");
+  const rule = css.match(/\[data-app-composer\]:has\(\[data-tqueue-card\]\) \[data-tqueue-aside\][^{]*\{[^}]*\}/);
+  assert.ok(rule, "rule present");
+  assert.match(rule[0], /display: none !important/);
+  const app = read("../app.tsx");
+  assert.match(app, /useDeckAside\(card, plan !== null\)/);
+  assert.match(app, /if \(needsOwnerAnswer\(item\)\) continue/);
+  assert.doesNotMatch(app.slice(app.indexOf("function useDeckAside")), /composer-predictions/);
+});
+
+test("an item the owner has to answer is never hidden; a plain pill is", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { needsOwnerAnswer } = await import("../deck-aside.ts");
+  const doc = new JSDOM("<body></body>").window.document;
+  const item = (html) => {
+    const el = doc.createElement("div");
+    el.innerHTML = html;
+    return el.firstElementChild;
+  };
+  const keep = {
+    "question form": '<section data-testid="user-question-banner"><div data-question-form="true"><fieldset><input type="radio"></fieldset></div></section>',
+    "question tabs": '<section><div data-question-tabs="true"></div></section>',
+    "permission request": '<section data-testid="approval-banner"><button>Allow once</button><button>Deny</button></section>',
+    "permission buttons by text only": "<section><button>Allow for session</button></section>",
+    "text field": "<section><textarea></textarea></section>",
+    "checkbox role": '<section><div role="checkbox"></div></section>',
+    "dialog": '<section role="alertdialog"></section>',
+    "needs input mark": '<section><svg aria-label="Needs input"></svg></section>',
+    "child question row": "<section><div data-child-question-row></div></section>",
+  };
+  for (const [name, html] of Object.entries(keep)) assert.equal(needsOwnerAnswer(item(html)), true, name);
+  const hide = {
+    "suggestion pill": '<span class="sr-only" role="status" data-composer-prediction-bridge>Suggestion available. Press Tab</span>',
+    "plain card": "<section><div>Uncommitted · 6 files</div><button>Open</button></section>",
+    "hidden input only": '<section><input type="hidden"></section>',
+  };
+  for (const [name, html] of Object.entries(hide)) assert.equal(needsOwnerAnswer(item(html)), false, name);
+});
+
 test("bb's Child threads card goes while the plan card is up, but not while a child asks a question", () => {
   const css = read("../app.css");
   const rule = css.match(/\[data-app-composer\]:has\(\[data-tqueue-card\]\) section\[aria-label="Child threads"\][^{]*\{[^}]*\}/);

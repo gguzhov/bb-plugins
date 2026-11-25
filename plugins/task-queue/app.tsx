@@ -20,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ownerLabel, queueName, ticketView } from "./format.ts";
 import { stripCodes } from "./agent-names.ts";
 import { DECK_UI, rescanDeck, useDeckOptOut, usePillsMode } from "./deck-opt-out.ts";
+import { needsOwnerAnswer } from "./deck-aside.ts";
 import { epicHint, headerCurrent, linkAgents, nowDoing, planHints, unlinkedLine, spendLine, ticketHint } from "./hint.ts";
 import { agentDisplayName, duration, resolveLang, t, type Lang } from "./i18n.ts";
 
@@ -907,6 +908,80 @@ function useChildCardAside(root: React.RefObject<HTMLElement | null>, on: boolea
   }, [root, on]);
 }
 
+const ASIDE_ATTR = "data-tqueue-aside";
+
+/**
+ * The strip of pills (or the tucked cards) above this card: every other
+ * banner that sits in the composer stack, whoever draws it (Composer
+ * Predictions' "Suggestion available", bb's own cards, other plugins). While
+ * this card is up they go, by one rule instead of a list of plugins: each
+ * stack item except this card and an item the owner has to answer (see
+ * deck-aside.ts: question form, permission request, input fields) gets ASIDE_ATTR (app.css hides it) and is marked as not a card for Liquid
+ * Glass, which would otherwise count the hidden item into its pill row or
+ * deck. The marks are taken off when the card goes or the plugin is disabled.
+ * The plugins behind the banners keep running (ghost text and Tab included).
+ */
+function stackItems(grid: Element): Element[] {
+  const items: Element[] = [];
+  const visit = (element: Element) => {
+    if (element.classList.contains("contents")) for (const child of Array.from(element.children)) visit(child);
+    else items.push(element);
+  };
+  for (const child of Array.from(grid.children)) visit(child);
+  return items;
+}
+
+function useDeckAside(root: React.RefObject<HTMLElement | null>, on: boolean): void {
+  useEffect(() => {
+    if (!on) return;
+    const marked = new Set<Element>();
+    const tick = () => {
+      const composer = root.current?.closest("[data-app-composer]") ?? null;
+      const grid = composer?.querySelector(":scope > .grid") ?? null;
+      const want = new Set<Element>();
+      if (grid !== null) {
+        for (const item of stackItems(grid)) {
+          if (item.querySelector("[data-tqueue-card]") !== null || item.matches("[data-tqueue-card]")) continue;
+          if (needsOwnerAnswer(item)) continue;
+          // Already taken out of the deck by this plugin (bb's child or background card).
+          if (item.hasAttribute(DECK_UI) && !marked.has(item)) continue;
+          want.add(item);
+        }
+      }
+      let changed = false;
+      for (const item of Array.from(marked)) {
+        if (want.has(item) && item.isConnected) continue;
+        item.removeAttribute(ASIDE_ATTR);
+        item.removeAttribute(DECK_UI);
+        marked.delete(item);
+        changed = true;
+      }
+      for (const item of want) {
+        if (marked.has(item)) continue;
+        item.setAttribute(ASIDE_ATTR, "");
+        item.setAttribute(DECK_UI, "");
+        marked.add(item);
+        changed = true;
+      }
+      if (changed) rescanDeck();
+    };
+    tick();
+    const timer = window.setInterval(tick, 500);
+    const composer = root.current?.closest("[data-app-composer]") ?? null;
+    const observer = composer === null ? null : new MutationObserver(tick);
+    if (composer !== null) observer?.observe(composer, { childList: true, subtree: true, characterData: true });
+    return () => {
+      window.clearInterval(timer);
+      observer?.disconnect();
+      for (const item of marked) {
+        item.removeAttribute(ASIDE_ATTR);
+        item.removeAttribute(DECK_UI);
+      }
+      if (marked.size > 0) rescanDeck();
+    };
+  }, [root, on]);
+}
+
 function TaskQueueBanner() {
   const composer = useComposer();
   const lang = useResolvedLang();
@@ -926,6 +1001,7 @@ function TaskQueueBanner() {
   const pillsDeck = usePillsMode();
   useDeckOptOut(card, pillsDeck, plan !== null);
   useChildCardAside(card, plan !== null);
+  useDeckAside(card, plan !== null);
   useKeyboardFold(card, open && pillsDeck, setOpen);
 
   if (plan === null) return null;

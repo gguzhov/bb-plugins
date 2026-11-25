@@ -642,6 +642,18 @@
   display: none !important;
 }
 
+/* ── Pills and cards above this card ─────────────────────────────────────────
+   While this card is up, every other banner of the composer stack is out: the
+   "Suggestion available" pill of Composer Predictions, tucked deck cards and
+   pills of any plugin. app.tsx puts data-tqueue-aside on each such stack item
+   (not this card, not an item with a child's question row) and marks it as not
+   a card for Liquid Glass, so no pill row or empty strip stays. The marks go
+   with this card or with the plugin. The plugins behind the banners keep
+   running: ghost text in the prompt box and Tab work as before. */
+[data-app-composer]:has([data-tqueue-card]) [data-tqueue-aside] {
+  display: none !important;
+}
+
 /* ── Liquid Glass deck ───────────────────────────────────────────────────────
    In the "stack" deck this card opens by its own row and at its own pace, so
    the deck's effects for a tucked card (clip to 38px, lift and grow on hover,
