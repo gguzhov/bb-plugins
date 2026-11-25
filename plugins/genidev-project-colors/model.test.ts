@@ -4,7 +4,7 @@ import {JSDOM} from 'jsdom';
 import {createFakePluginHost} from '@get-bb/plugin-sdk/testing';
 import plugin from './server';
 import {decorateProjects} from './decoration';
-import {PALETTE,defaultColor,validColor} from './palette';
+import {FULL_WIDTH_SETTING,PALETTE,defaultColor,validColor} from './palette';
 test('palette: valid, stable across Unicode forms',()=>{assert.equal(new Set(PALETTE.map(x=>x.hex)).size,8);assert(PALETTE.every(x=>validColor(x.hex)));assert.equal(defaultColor('Зимний сад'),defaultColor('Зимний сад'));assert(!validColor('red;display:none'));});
 test('RPC validates, persists custom colors and explicit reset',async()=>{
  let {bb,harness}=createFakePluginHost({pluginId:'genidev-project-colors',sdk:{projects:{list:async()=>[{id:'p1',name:'Demo project'}] as any}}});
@@ -51,6 +51,29 @@ test('sidebar underlines preserve empty sections and clean up on rerender',async
  send(null,1700000000001);await settle();assert.equal(document.querySelectorAll('.pc-project-label').length,0);assert.equal(label().getAttribute('data-pc-chosen-at'),'1700000000001');
  send('#28A99C',1700000000002);await settle();
  ctrl.abort();cleanup();assert.equal(document.querySelectorAll('.pc-project-label').length,0);assert.equal(document.querySelectorAll('[data-pc-chosen-at]').length,0);dom.window.close();
+});
+test('header row gets the colour for the full-width underline and is cleaned up',async()=>{
+ const header='<span class="row"><span class="flex"><span>Demo</span><button data-sidebar-rename-anchor aria-expanded="true">v</button></span></span>';
+ const dom=new JSDOM('<body><div data-sidebar-project-id="p1"><div data-sidebar-rename-row>'+header+'<div class="mt-1">threads</div></div></div></body>',{pretendToBeVisual:true});
+ Object.assign(globalThis,{document:dom.window.document,MutationObserver:dom.window.MutationObserver,CustomEvent:dom.window.CustomEvent,Event:dom.window.Event,requestAnimationFrame:dom.window.requestAnimationFrame.bind(dom.window),cancelAnimationFrame:dom.window.cancelAnimationFrame.bind(dom.window)});
+ const ctrl=new AbortController();const cleanup=decorateProjects(ctrl.signal);
+ const send=(color:string|null)=>document.dispatchEvent(new CustomEvent('pc:state',{detail:[{id:'p1',name:'Demo',color,chosenAt:null}]}));
+ const settle=()=>new Promise(r=>setTimeout(r,45));
+ const row=()=>document.querySelector<HTMLElement>('.row')!;
+ send('#28A99C');await settle();
+ assert(row().classList.contains('pc-project-header'));assert.equal(row().style.getPropertyValue('--pc-color'),'#28A99C');
+ assert.equal(document.querySelectorAll('.pc-project-header').length,1);assert(!document.querySelector('.mt-1')!.classList.contains('pc-project-header'));
+ send(null);await settle();assert(!row().classList.contains('pc-project-header'));
+ send('#28A99C');await settle();
+ document.querySelector('[data-sidebar-rename-row]')!.innerHTML=header;send('#4F8FF7');await settle();
+ assert.equal(row().style.getPropertyValue('--pc-color'),'#4F8FF7');assert.equal(document.querySelectorAll('.pc-project-header').length,1);
+ ctrl.abort();cleanup();assert.equal(document.querySelectorAll('.pc-project-header').length,0);assert.equal(row().style.getPropertyValue('--pc-color'),'');dom.window.close();
+});
+test('full-width setting is registered and off by default',async()=>{
+ const {bb,harness}=createFakePluginHost({pluginId:'genidev-project-colors',sdk:{projects:{list:async()=>[] as any}}});
+ await plugin(bb);const d:any=harness.registrations.settingsDescriptors[FULL_WIDTH_SETTING];
+ assert.equal(d.type,'boolean');assert.equal(d.default,false);
+ await harness.lifecycle.dispose();
 });
 
 import {fromHsv,hex,toHsv} from './color';

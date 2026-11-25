@@ -3,11 +3,11 @@ import {watchMenuExit} from './menu-lifecycle';
 import {projectSurfaces} from './project-surfaces';
 import {useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 const FLY_GAP=4,FLY_EDGE=8;
-import {experimental_Icon as Icon,definePluginApp,useRpc,useRealtime,experimental_useSidebarThreads} from '@get-bb/plugin-sdk/app';
+import {experimental_Icon as Icon,definePluginApp,useRpc,useRealtime,useSettings,experimental_useSidebarThreads} from '@get-bb/plugin-sdk/app';
 import type {rpcContract} from './server';
-import {PALETTE,type ProjectColor} from './palette';
+import {FULL_WIDTH_SETTING,PALETTE,type ProjectColor} from './palette';
 import {fromHsv,hex,toHsv} from './color';
-import {decorateProjects} from './decoration';
+import {decorateProjects,UNDERLINE_ATTRIBUTE} from './decoration';
 import './style.css';
 function useColors(){
  const {projects:catalog}=experimental_useSidebarThreads();const catalogKey=catalog.map(p=>p.id+':'+p.name).join('|');
@@ -17,7 +17,9 @@ function useColors(){
  return {projects,recent,error,rpc,refresh};
 }
 function Colors(){
- const{projects,recent,rpc,refresh}=useColors();const[surface,setSurface]=useState<{id:string;host:HTMLElement}|null>(null);const[created,setCreated]=useState<string|null>(null);const baseline=useRef<{ids:Set<string>;time:number}|null>(null);const current=useRef(projects);current.current=projects;
+ const{projects,recent,rpc,refresh}=useColors();const fullWidth=useSettings().values?.[FULL_WIDTH_SETTING]===true;
+ useEffect(()=>{const root=document.documentElement;if(fullWidth)root.setAttribute(UNDERLINE_ATTRIBUTE,'full');else root.removeAttribute(UNDERLINE_ATTRIBUTE);return()=>root.removeAttribute(UNDERLINE_ATTRIBUTE);},[fullWidth]);
+ const[surface,setSurface]=useState<{id:string;host:HTMLElement}|null>(null);const[created,setCreated]=useState<string|null>(null);const baseline=useRef<{ids:Set<string>;time:number}|null>(null);const current=useRef(projects);current.current=projects;
  useEffect(()=>{const send=()=>document.dispatchEvent(new CustomEvent('pc:state',{detail:projects}));send();document.addEventListener('pc:ready',send);return()=>document.removeEventListener('pc:ready',send);},[projects]);
  useEffect(()=>{const change=(e:Event)=>setSurface((e as CustomEvent).detail);const creating=()=>{baseline.current={ids:new Set(current.current.map(p=>p.id)),time:Date.now()};};document.addEventListener('pc:surface',change);document.addEventListener('pc:creating',creating);document.dispatchEvent(new Event('pc:surfaces-ready'));return()=>{document.removeEventListener('pc:surface',change);document.removeEventListener('pc:creating',creating);};},[]);
  useEffect(()=>{const b=baseline.current;if(!b)return;if(Date.now()-b.time>300000){baseline.current=null;return;}const added=projects.filter(p=>!b.ids.has(p.id));if(added.length){baseline.current=null;if(added.length===1)setCreated(added[0].id);}},[projects]);
