@@ -3,7 +3,7 @@
    The label keeps its class and data-pc-chosen-at for the icons plugin; when that plugin hides the name underline, the row's goes too. */
 html[data-pc-underline=full] .pc-project-label{box-shadow:none;}
 .pc-header-line{display:none;}
-html[data-pc-underline=full] .pc-project-header>.pc-header-line{display:block;position:absolute;left:var(--pc-inset,0);right:var(--pc-inset,0);bottom:0;height:2px;background:var(--pc-color);pointer-events:none;}
+html[data-pc-underline=full] .pc-project-header>.pc-header-line{display:block;position:absolute;left:var(--pc-inset,0);right:var(--pc-inset,0);bottom:1px;height:2px;background:var(--pc-color);pointer-events:none;}
 html[data-pc-underline=full] .pc-project-header:has(.pi-project-icon.pi-no-underline + .pc-project-label)>.pc-header-line{display:none;}
 .pc-settings{width:100%;min-width:0;container-type:inline-size;}
 .pc-setting-row{padding:16px 0;border-bottom:1px solid var(--border);min-width:0;}
