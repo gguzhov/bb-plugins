@@ -36,7 +36,7 @@ test('chosenAt: saved on choice, absent for defaults and old records',async()=>{
 test('sidebar underlines preserve empty sections and clean up on rerender',async()=>{
  const markup='<section><header><span><span>Demo project</span><button data-sidebar-rename-anchor aria-expanded="true">Collapse</button></span></header><div>No threads</div></section>';
  const dom=new JSDOM('<body><div data-sidebar-project-id="p1">'+markup+'</div></body>',{pretendToBeVisual:true});
- Object.assign(globalThis,{document:dom.window.document,MutationObserver:dom.window.MutationObserver,CustomEvent:dom.window.CustomEvent,Event:dom.window.Event,requestAnimationFrame:dom.window.requestAnimationFrame.bind(dom.window),cancelAnimationFrame:dom.window.cancelAnimationFrame.bind(dom.window)});
+ Object.assign(globalThis,{getComputedStyle:dom.window.getComputedStyle.bind(dom.window),document:dom.window.document,MutationObserver:dom.window.MutationObserver,CustomEvent:dom.window.CustomEvent,Event:dom.window.Event,requestAnimationFrame:dom.window.requestAnimationFrame.bind(dom.window),cancelAnimationFrame:dom.window.cancelAnimationFrame.bind(dom.window)});
  const ctrl=new AbortController();const cleanup=decorateProjects(ctrl.signal);
  const send=(color:string|null='#28A99C',chosenAt:number|null=null)=>document.dispatchEvent(new CustomEvent('pc:state',{detail:[{id:'p1',name:'Demo project',color,chosenAt}]}));
  const settle=()=>new Promise(r=>setTimeout(r,45));send();await settle();send();await settle();
@@ -53,22 +53,22 @@ test('sidebar underlines preserve empty sections and clean up on rerender',async
  ctrl.abort();cleanup();assert.equal(document.querySelectorAll('.pc-project-label').length,0);assert.equal(document.querySelectorAll('[data-pc-chosen-at]').length,0);dom.window.close();
 });
 test('header row gets the colour for the full-width underline and is cleaned up',async()=>{
- const header='<span class="row"><span class="flex"><span>Demo</span><button data-sidebar-rename-anchor aria-expanded="true">v</button></span></span>';
+ const header='<span class="row" style="padding-left:8px"><span class="flex"><span>Demo</span><button data-sidebar-rename-anchor aria-expanded="true">v</button></span></span>';
  const dom=new JSDOM('<body><div data-sidebar-project-id="p1"><div data-sidebar-rename-row>'+header+'<div class="mt-1">threads</div></div></div></body>',{pretendToBeVisual:true});
- Object.assign(globalThis,{document:dom.window.document,MutationObserver:dom.window.MutationObserver,CustomEvent:dom.window.CustomEvent,Event:dom.window.Event,requestAnimationFrame:dom.window.requestAnimationFrame.bind(dom.window),cancelAnimationFrame:dom.window.cancelAnimationFrame.bind(dom.window)});
+ Object.assign(globalThis,{getComputedStyle:dom.window.getComputedStyle.bind(dom.window),document:dom.window.document,MutationObserver:dom.window.MutationObserver,CustomEvent:dom.window.CustomEvent,Event:dom.window.Event,requestAnimationFrame:dom.window.requestAnimationFrame.bind(dom.window),cancelAnimationFrame:dom.window.cancelAnimationFrame.bind(dom.window)});
  const ctrl=new AbortController();const cleanup=decorateProjects(ctrl.signal);
  const send=(color:string|null)=>document.dispatchEvent(new CustomEvent('pc:state',{detail:[{id:'p1',name:'Demo',color,chosenAt:null}]}));
  const settle=()=>new Promise(r=>setTimeout(r,45));
  const row=()=>document.querySelector<HTMLElement>('.row')!;
  send('#28A99C');await settle();
  assert(row().classList.contains('pc-project-header'));assert.equal(row().style.getPropertyValue('--pc-color'),'#28A99C');
- assert.equal(row().querySelectorAll(':scope > .pc-header-line').length,1);assert.equal(row().lastElementChild!.className,'pc-header-line');
+ assert.equal(row().querySelectorAll(':scope > .pc-header-line').length,1);assert.equal(row().style.getPropertyValue('--pc-inset'),'8px');assert.equal(row().lastElementChild!.className,'pc-header-line');
  assert.equal(document.querySelectorAll('.pc-project-header').length,1);assert(!document.querySelector('.mt-1')!.classList.contains('pc-project-header'));
  send(null);await settle();assert(!row().classList.contains('pc-project-header'));
  send('#28A99C');await settle();
  document.querySelector('[data-sidebar-rename-row]')!.innerHTML=header;send('#4F8FF7');await settle();
  assert.equal(row().style.getPropertyValue('--pc-color'),'#4F8FF7');assert.equal(row().querySelectorAll('.pc-header-line').length,1);assert.equal(document.querySelectorAll('.pc-project-header').length,1);
- ctrl.abort();cleanup();assert.equal(document.querySelectorAll('.pc-project-header').length,0);assert.equal(row().style.getPropertyValue('--pc-color'),'');assert.equal(document.querySelectorAll('.pc-header-line').length,0);dom.window.close();
+ ctrl.abort();cleanup();assert.equal(document.querySelectorAll('.pc-project-header').length,0);assert.equal(row().style.getPropertyValue('--pc-color'),'');assert.equal(document.querySelectorAll('.pc-header-line').length,0);assert.equal(row().style.getPropertyValue('--pc-inset'),'');dom.window.close();
 });
 test('full-width setting is registered and off by default',async()=>{
  const {bb,harness}=createFakePluginHost({pluginId:'genidev-project-colors',sdk:{projects:{list:async()=>[] as any}}});
