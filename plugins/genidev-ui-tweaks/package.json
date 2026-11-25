@@ -1,14 +1,14 @@
 {
   "name": "bb-plugin-genidev-ui-tweaks",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "type": "module",
   "engines": {
     "bb": ">=0.50",
     "bbPluginSdk": ">=0.6.157"
   },
   "bb": {
-    "name": "Правки вида",
-    "description": "Набор небольших правок интерфейса bb: значок-булавка, правая панель въезжает поверх чата сдвигом, крестик закрытия, нажатие на свободное место чата или Escape закрывает правую панель. Команда bb genidev-ui-tweaks check проверяет, что правки работают после обновления bb.",
+    "name": "Thread Panel Polish",
+    "description": "Align thread-header actions and side-panel tabs. Keeps labels compact in narrow layouts and provides a close button in the right panel.",
     "branding": {
       "icon": "Paintbrush"
     },

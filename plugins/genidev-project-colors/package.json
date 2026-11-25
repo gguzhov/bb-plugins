@@ -1,14 +1,14 @@
 {
   "name": "bb-plugin-genidev-project-colors",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "type": "module",
   "engines": {
     "bb": ">=0.49",
     "bbPluginSdk": ">=0.6.132"
   },
   "bb": {
-    "name": "Цвета проектов",
-    "description": "Подчёркивание проектов: 8 оттенков, RGB и отключение цвета при создании и в настройках проекта.",
+    "name": "Project Underlines",
+    "description": "Give projects their own underline colors in the BB sidebar. Set or reset a color from the project controls.",
     "branding": {
       "icon": "Palette"
     },
