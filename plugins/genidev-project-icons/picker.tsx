@@ -3,7 +3,8 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 
 import { experimental_Icon as Icon } from "@get-bb/plugin-sdk/app";
 import type { LibraryIcon } from "./server";
 import { fileToIcon, iconNameFromFile, PickError } from "./client-image";
-import { pickerCells, previewMode } from "./cells";
+import { pickerCells, PHASE_CAPTION, previewPhases } from "./cells";
+import type { CSSProperties } from "react";
 
 export interface PickerActions {
   select(iconId: string | null): Promise<void>;
@@ -89,21 +90,34 @@ function Cell(props: {
 
 /**
  * Icon art in a cell. While the pointer is over the cell (or it has keyboard
- * focus) an icon with frames plays its loop; the frame pictures are only put
- * into the page then.
+ * focus) an icon with frames plays its loop: one phase per state it has frames
+ * for (works, waits, error, done). The frame pictures are only put into the page then.
  */
 function IconArt({ icon, live }: { icon: LibraryIcon; live: boolean }) {
-  const mode = live ? previewMode(icon) : null;
+  const phases = live ? previewPhases(icon) : [];
+  const { frames } = icon;
+  const slot = (index: number) => ({ "--k": index }) as CSSProperties;
   return (
-    <span className="pi-stack pi-cell-art" data-pi-anim={mode ?? undefined}>
+    <span className="pi-stack pi-cell-art" data-pi-anim={phases.length ? "preview" : undefined} data-pi-n={phases.length || undefined}>
       <img className="pi-frame pi-frame-base" src={icon.url} alt="" draggable={false} loading="lazy" />
-      {mode === "preview" && (
-        <>
-          <img className="pi-frame pi-frame-left" src={icon.frames.left} alt="" draggable={false} />
-          <img className="pi-frame pi-frame-right" src={icon.frames.right} alt="" draggable={false} />
-          <img className="pi-frame pi-frame-puzzled" src={icon.frames.puzzled} alt="" draggable={false} />
-        </>
-      )}
+      {phases.map((phase, index) => {
+        if (phase === "work") {
+          const has = frames.left && frames.right ? "lr" : frames.left ? "l" : "r";
+          return (
+            <span key={phase} className="pi-phase pi-phase-work" data-pi-has={has} style={slot(index)}>
+              <img className="pi-frame pi-frame-base" src={icon.url} alt="" draggable={false} />
+              {frames.left && <img className="pi-frame pi-frame-left" src={frames.left} alt="" draggable={false} />}
+              {frames.right && <img className="pi-frame pi-frame-right" src={frames.right} alt="" draggable={false} />}
+            </span>
+          );
+        }
+        const src = phase === "wait" ? frames.puzzled : phase === "error" ? frames.alert : frames.happy;
+        return (
+          <span key={phase} className={`pi-phase pi-phase-${phase}`} style={slot(index)}>
+            <img className={`pi-frame pi-frame-${phase}`} src={src} alt="" draggable={false} />
+          </span>
+        );
+      })}
     </span>
   );
 }
@@ -169,7 +183,8 @@ export function Picker({ icons, selected, loadError, actions, onExitLeft }: Pick
 
   const liveIcon = icons?.find((icon) => icon.id === live);
   // What the line under the grid says; its words are switched by CSS in step with the frames.
-  const caption = liveIcon ? (previewMode(liveIcon) ? "frames" : "none") : "";
+  const phases = liveIcon ? previewPhases(liveIcon) : [];
+  const caption = liveIcon ? (phases.length ? "frames" : "none") : "";
 
   const liveProps = (id: string) => ({
     onPointerEnter: () => setLive(id),
@@ -205,7 +220,7 @@ export function Picker({ icons, selected, loadError, actions, onExitLeft }: Pick
                 <IconArt icon={icon} live={live === icon.id} />
               </Cell>
             );
-            if (icon.kind === "builtin") {
+            if (icon.kind !== "custom") {
               return (
                 <div key={icon.id} className="pi-slot" {...liveProps(icon.id)}>
                   {art}
@@ -233,9 +248,12 @@ export function Picker({ icons, selected, loadError, actions, onExitLeft }: Pick
         </div>
       )}
       {icons !== null && (
-        <p className="pi-caption" data-pi-caption={caption || undefined} aria-hidden="true">
-          <span className="pi-cap pi-cap-work">в работе</span>
-          <span className="pi-cap pi-cap-wait">ждёт вас</span>
+        <p className="pi-caption" data-pi-caption={caption || undefined} data-pi-n={phases.length || undefined} aria-hidden="true">
+          {phases.map((phase, index) => (
+            <span key={phase} className="pi-cap" style={{ "--k": index } as CSSProperties}>
+              {PHASE_CAPTION[phase]}
+            </span>
+          ))}
           <span className="pi-cap pi-cap-still">без анимации</span>
           <span className="pi-cap pi-cap-reduced">анимация выключена в системе</span>
         </p>

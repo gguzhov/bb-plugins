@@ -2,7 +2,7 @@
 // - content script "project-menus" keeps a host for the «Icon» item in the project menu;
 // - content script "sidebar-icons" draws the chosen icon next to project names;
 // - overlay "icons" loads state over RPC, renders the item into the host and
-//   works out each project's state (working / waiting) from the sidebar's live
+//   works out each project's state (error / waiting / working / done) from the sidebar's live
 //   thread list, which bb already keeps fresh: no extra requests or polling.
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";

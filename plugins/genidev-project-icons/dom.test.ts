@@ -141,37 +141,70 @@ test("sidebar icon frames follow the project state; frames only load while not i
   const dom = setup(`<div data-sidebar-project-id="p1">${row}</div><div data-sidebar-project-id="p2">${row}</div>`);
   const control = new AbortController();
   decorateSidebar(control.signal);
-  const frames = { left: "/i?id=a&frame=left", right: "/i?id=a&frame=right", puzzled: "/i?id=a&frame=puzzled" };
-  const icon = (state: "idle" | "working" | "waiting", extra: object = {}) => ({ url: "/i?id=a", name: "A", frames, state, ...extra });
+  const frames = { left: "/i?id=a&frame=left", right: "/i?id=a&frame=right", puzzled: "/i?id=a&frame=puzzled", alert: "/i?id=a&frame=alert", happy: "/i?id=a&frame=happy" };
+  const icon = (state: "idle" | "working" | "waiting" | "error" | "done", extra: object = {}) => ({ url: "/i?id=a", name: "A", frames, state, ...extra });
+  const badgeOf = (id: string) => document.querySelector(`[data-sidebar-project-id="${id}"] .pi-badge`)?.className.replace("pi-badge ", "") ?? null;
+  const badgeText = (id: string) => document.querySelector(`[data-sidebar-project-id="${id}"] .pi-badge`)?.textContent ?? null;
   const look = (id: string) => {
     const span = document.querySelector<HTMLElement>(`[data-sidebar-project-id="${id}"] .pi-project-icon`)!;
     const imgs = Array.from(span.querySelectorAll("img")).map((img) => img.className.replace("pi-frame pi-frame-", ""));
-    return { anim: span.dataset.piAnim ?? null, imgs, badge: !!span.querySelector(".pi-badge") };
+    return { anim: span.dataset.piAnim ?? null, imgs, badge: badgeOf(id) };
   };
 
   sidebarIcons.set(new Map<string, any>([["p1", icon("idle")], ["p2", { url: "/i?id=c", name: "C", state: "idle" as const }]]));
   await settle();
-  assert.deepEqual(look("p1"), { anim: null, imgs: ["base"], badge: false }, "idle: main frame only, no frame requests");
+  assert.deepEqual(look("p1"), { anim: null, imgs: ["base"], badge: null }, "idle: main frame only, no frame requests");
 
   sidebarIcons.set(new Map<string, any>([["p1", icon("working")], ["p2", { url: "/i?id=c", name: "C", state: "working" as const }]]));
   await settle();
-  assert.deepEqual(look("p1"), { anim: "eyes", imgs: ["base", "left", "right"], badge: false });
-  assert.deepEqual(look("p2"), { anim: "wiggle", imgs: ["base"], badge: false }, "no left/right: the icon itself moves");
+  assert.deepEqual(look("p1"), { anim: "eyes", imgs: ["base", "left", "right"], badge: null });
+  assert.deepEqual(look("p2"), { anim: "wiggle", imgs: ["base"], badge: null }, "no left/right: the icon itself moves");
 
   sidebarIcons.set(new Map<string, any>([["p1", icon("waiting")], ["p2", { url: "/i?id=c", name: "C", state: "waiting" as const }]]));
   await settle();
-  assert.deepEqual(look("p1"), { anim: "puzzled", imgs: ["base", "puzzled"], badge: false });
-  assert.deepEqual(look("p2"), { anim: "badge", imgs: ["base"], badge: true }, "no puzzled frame: yellow «?»");
+  assert.deepEqual(look("p1"), { anim: "puzzled", imgs: ["base", "puzzled"], badge: "pi-badge-wait" }, "puzzled frame and the yellow badge");
+  assert.deepEqual(look("p2"), { anim: "badge", imgs: ["base"], badge: "pi-badge-wait" }, "no puzzled frame: main picture and the same badge");
+  assert.equal(badgeText("p1"), "?");
+
+  // Error: scared frame (or the main one) and the red «!»; done: happy frame (or the main one) and the green dot.
+  sidebarIcons.set(new Map<string, any>([["p1", icon("error")], ["p2", { url: "/i?id=c", name: "C", state: "error" as const }]]));
+  await settle();
+  assert.deepEqual(look("p1"), { anim: "alert", imgs: ["base", "alert"], badge: "pi-badge-error" });
+  assert.deepEqual(look("p2"), { anim: "shake", imgs: ["base"], badge: "pi-badge-error" }, "no alert frame: the main picture twitches");
+  assert.equal(badgeText("p1"), "!");
+  sidebarIcons.set(new Map<string, any>([["p1", icon("done")], ["p2", { url: "/i?id=c", name: "C", state: "done" as const }]]));
+  await settle();
+  assert.deepEqual(look("p1"), { anim: "happy", imgs: ["base", "happy"], badge: "pi-badge-done" });
+  assert.deepEqual(look("p2"), { anim: "badge", imgs: ["base"], badge: "pi-badge-done" }, "no happy frame: main picture, green dot");
+  assert.equal(badgeText("p1"), "");
+  // Only a half-set of frames: error uses alert when it exists, whatever else is missing.
+  sidebarIcons.set(new Map<string, any>([["p1", icon("error", { frames: { alert: "/i?id=a&frame=alert" } })]]));
+  await settle();
+  assert.deepEqual(look("p1"), { anim: "alert", imgs: ["base", "alert"], badge: "pi-badge-error" });
+
+  // The badge changes with the state and goes away with it.
+  sidebarIcons.set(new Map<string, any>([["p1", icon("waiting")]]));
+  await settle();
+  assert.equal(badgeOf("p1"), "pi-badge-wait");
+  sidebarIcons.set(new Map<string, any>([["p1", icon("error")]]));
+  await settle();
+  assert.equal(document.querySelectorAll('[data-sidebar-project-id="p1"] .pi-badge').length, 1);
+  assert.equal(badgeOf("p1"), "pi-badge-error");
 
   // Setting «Анимация иконок» off: still icons, the waiting badge stays.
   sidebarIcons.set(new Map<string, any>([["p1", icon("waiting", { animate: false })], ["p2", { url: "/i?id=c", name: "C", state: "working" as const, animate: false }]]));
   await settle();
-  assert.deepEqual(look("p1"), { anim: "badge", imgs: ["base"], badge: true });
-  assert.deepEqual(look("p2"), { anim: "still", imgs: ["base"], badge: false });
+  assert.deepEqual(look("p1"), { anim: "badge", imgs: ["base"], badge: "pi-badge-wait" });
+  assert.deepEqual(look("p2"), { anim: "still", imgs: ["base"], badge: null });
+  // Animation off: no motion and no expression frames, but every badge stays.
+  sidebarIcons.set(new Map<string, any>([["p1", icon("error", { animate: false })], ["p2", icon("done", { animate: false })]]));
+  await settle();
+  assert.deepEqual(look("p1"), { anim: "badge", imgs: ["base"], badge: "pi-badge-error" });
+  assert.deepEqual(look("p2"), { anim: "badge", imgs: ["base"], badge: "pi-badge-done" });
 
   sidebarIcons.set(new Map<string, any>([["p1", icon("idle")]]));
   await settle();
-  assert.deepEqual(look("p1"), { anim: null, imgs: ["base"], badge: false });
+  assert.deepEqual(look("p1"), { anim: null, imgs: ["base"], badge: null });
   // The underline rule needs the icon right before the coloured label.
   assert.equal(document.querySelector('[data-sidebar-project-id="p1"] .pc-project-label')!.previousElementSibling?.classList.contains("pi-project-icon"), true);
   control.abort();
@@ -180,47 +213,96 @@ test("sidebar icon frames follow the project state; frames only load while not i
   dom.window.close();
 });
 
-test("project state from threads: waiting beats working, unread and hidden do not count", async () => {
-  const { projectStates, threadState, parseDebugStates, withOverrides } = await import("./project-state");
+test("project state from threads: five states and their order", async () => {
+  const { projectStates, threadState, parseDebugStates, withOverrides, strongest, STATE_NAMES } = await import("./project-state");
   const t = (projectId: string, extra: object = {}) => ({
     projectId,
     status: "idle",
     indicator: "none",
+    isUnread: false,
     hasPendingInteraction: false,
     isHidden: false,
     isArchived: false,
     ...extra,
   });
+  // One thread each.
+  assert.equal(threadState(t("a")), "idle");
   assert.equal(threadState(t("a", { status: "active" })), "working");
   assert.equal(threadState(t("a", { status: "starting" })), "working");
+  assert.equal(threadState(t("a", { status: "stopping" })), "working");
   assert.equal(threadState(t("a", { status: "pending" })), "idle");
   assert.equal(threadState(t("a", { status: "active", hasPendingInteraction: true })), "waiting");
   assert.equal(threadState(t("a", { indicator: "waiting-for-input" })), "waiting");
-  assert.equal(threadState(t("a", { indicator: "unread-success" })), "idle");
+  assert.equal(threadState(t("a", { indicator: "unread-error", status: "error" })), "error");
+  assert.equal(threadState(t("a", { indicator: "unread-success" })), "done");
+  // Read results (status error, but the indicator is gone) and other indicators are not states.
+  assert.equal(threadState(t("a", { status: "error", isUnread: true })), "error", "live data: status error, unread, indicator none");
+  assert.equal(threadState(t("a", { status: "error" })), "idle", "an error the owner already opened");
+  assert.equal(threadState(t("a", { status: "idle", isUnread: true })), "idle", "unread alone is not a state");
+  assert.equal(threadState(t("a", { status: "error", isUnread: true, isArchived: true })), "idle");
+  for (const indicator of ["queued-failed", "queued-waiting", "plan-mode", "runtime", "workflow", "background-agent", "draft", "none"]) {
+    assert.equal(threadState(t("a", { indicator })), "idle", indicator);
+  }
   assert.equal(threadState(t("a", { status: "active", isHidden: true })), "idle");
+  assert.equal(threadState(t("a", { indicator: "unread-error", isArchived: true })), "idle");
+  assert.equal(threadState(t("a", { indicator: "unread-success", isHidden: true })), "idle");
+  // Within one thread the order holds too: unread error > waiting > running > unread success.
+  assert.equal(threadState(t("a", { status: "active", indicator: "unread-success" })), "working");
+  assert.equal(threadState(t("a", { hasPendingInteraction: true, indicator: "unread-success" })), "waiting");
+  assert.equal(threadState(t("a", { status: "active", hasPendingInteraction: true, indicator: "unread-error" })), "error");
+
+  // Every pair of states in one project: the older in the order wins, in either thread order.
+  const sample = {
+    idle: t("x"),
+    done: t("x", { indicator: "unread-success" }),
+    working: t("x", { status: "active" }),
+    waiting: t("x", { hasPendingInteraction: true }),
+    error: t("x", { indicator: "unread-error", status: "error" }),
+  } as const;
+  const order = ["idle", "done", "working", "waiting", "error"] as const;
+  assert.deepEqual([...STATE_NAMES], [...order]);
+  for (let i = 0; i < order.length; i += 1) {
+    for (let j = 0; j < order.length; j += 1) {
+      const winner = order[Math.max(i, j)];
+      const forward = projectStates([sample[order[i]], sample[order[j]]]).get("x") ?? "idle";
+      const backward = projectStates([sample[order[j]], sample[order[i]]]).get("x") ?? "idle";
+      assert.equal(forward, winner, `${order[i]} + ${order[j]}`);
+      assert.equal(backward, winner, `${order[j]} + ${order[i]}`);
+      assert.equal(strongest([order[i], order[j]]), winner);
+    }
+  }
+  // All five at once.
+  assert.equal(projectStates(order.map((state) => sample[state])).get("x"), "error");
+  assert.equal(projectStates(order.slice(0, 4).map((state) => sample[state])).get("x"), "waiting");
+  assert.equal(projectStates(order.slice(0, 3).map((state) => sample[state])).get("x"), "working");
+  assert.equal(projectStates(order.slice(0, 2).map((state) => sample[state])).get("x"), "done");
+  assert.equal(strongest([]), "idle");
 
   const states = projectStates([
     t("both", { status: "active" }),
     t("both", { hasPendingInteraction: true }),
     t("both", { status: "active" }),
     t("work", { status: "active" }),
-    t("work", { indicator: "unread-error" }),
+    t("work", { indicator: "unread-success" }),
     t("calm", { indicator: "unread-success" }),
+    t("oops", { indicator: "unread-error" }),
+    t("quiet", { status: "error" }),
   ]);
-  assert.deepEqual(Object.fromEntries(states), { both: "waiting", work: "working" });
+  assert.deepEqual(Object.fromEntries(states), { both: "waiting", work: "working", calm: "done", oops: "error" });
 
-  // Debug switch: off without the key, ignores junk, "idle" forces idle.
+  // Debug switch: off without the key, ignores junk, takes all five states, "idle" forces idle.
   assert.equal(parseDebugStates(null).size, 0);
   assert.equal(parseDebugStates("{oops").size, 0);
   assert.equal(parseDebugStates("[1,2]").size, 0);
-  const debug = parseDebugStates('{"calm":"waiting","work":"idle","x":"dance"}');
-  assert.deepEqual(Object.fromEntries(debug), { calm: "waiting", work: "idle" });
-  assert.deepEqual(Object.fromEntries(withOverrides(states, debug)), { both: "waiting", calm: "waiting" });
+  const debug = parseDebugStates('{"calm":"waiting","work":"idle","x":"dance","e":"error","d":"done","w":"working"}');
+  assert.deepEqual(Object.fromEntries(debug), { calm: "waiting", work: "idle", e: "error", d: "done", w: "working" });
+  assert.equal(parseDebugStates('{"p":"toString","q":"__proto__"}').size, 0, "names from Object.prototype are not states");
+  assert.deepEqual(Object.fromEntries(withOverrides(states, debug)), { both: "waiting", calm: "waiting", oops: "error", e: "error", d: "done", w: "working" });
   assert.equal(withOverrides(states, new Map()), states);
 });
 
 test("picker: one list — none, bundled, custom, plus", async () => {
-  const { pickerCells, previewMode } = await import("./cells");
+  const { pickerCells, previewMode, previewPhases, PHASE_CAPTION } = await import("./cells");
   const icon = (id: string, kind: "builtin" | "custom", frames: object = {}) => ({ id, name: id, kind, url: `/i?id=${id}`, frames });
   const cells = pickerCells([icon("cat", "builtin"), icon("custom-1", "custom"), icon("dog", "builtin"), icon("custom-2", "custom")]);
   assert.deepEqual(
@@ -228,10 +310,20 @@ test("picker: one list — none, bundled, custom, plus", async () => {
     ["none", "cat", "dog", "custom-1", "custom-2", "add"],
   );
   assert.deepEqual(pickerCells([]).map((cell) => cell.kind), ["none", "add"]);
-  assert.equal(previewMode(icon("a", "builtin", { left: "l", right: "r", puzzled: "p" })), "preview");
-  assert.equal(previewMode(icon("a", "builtin", { left: "l", right: "r" })), null);
-  assert.equal(previewMode(icon("a", "builtin", { puzzled: "p" })), null);
-  assert.equal(previewMode(icon("a", "custom")), null);
+  const phases = (frames: object) => previewPhases(icon("a", "builtin", frames) as any);
+  assert.deepEqual(phases({ left: "l", right: "r", puzzled: "p", alert: "a", happy: "h" }), ["work", "wait", "error", "done"], "six frames: the whole loop");
+  assert.deepEqual(phases({ left: "l", right: "r", puzzled: "p" }), ["work", "wait"], "three frames: eyes and puzzled");
+  assert.deepEqual(phases({ left: "l", right: "r" }), ["work"]);
+  assert.deepEqual(phases({ left: "l" }), ["work"], "one eye frame is enough for the eyes");
+  assert.deepEqual(phases({ puzzled: "p" }), ["wait"]);
+  assert.deepEqual(phases({ alert: "a", happy: "h" }), ["error", "done"]);
+  assert.deepEqual(phases({ happy: "h", puzzled: "p" }), ["wait", "done"], "fixed order, not the order of the keys");
+  assert.deepEqual(phases({}), [], "no frames: nothing to play");
+  assert.equal(previewMode(icon("a", "builtin", { left: "l", right: "r", puzzled: "p" }) as any), "preview");
+  assert.equal(previewMode(icon("a", "builtin", { alert: "a" }) as any), "preview");
+  assert.equal(previewMode(icon("a", "builtin", { left: "l" }) as any), "preview");
+  assert.equal(previewMode(icon("a", "custom") as any), null);
+  assert.deepEqual(["work", "wait", "error", "done"].map((phase) => PHASE_CAPTION[phase as keyof typeof PHASE_CAPTION]), ["в работе", "ждёт вас", "ошибка", "готово"]);
 });
 
 test("custom picture encoding: WebP at 0.92, PNG when the browser cannot write WebP", async () => {
@@ -315,6 +407,89 @@ test("underline class on the icon follows the icon moment and the label attribut
   assert.equal(hidden(), false, "assignment without a moment counts as 0");
   control.abort();
   assert.equal(document.querySelectorAll(".pi-project-icon").length, 0);
+  sidebarIcons.set(new Map());
+  dom.window.close();
+});
+
+test("removing the icon brings the colour underline back at once (real stylesheet, the whole chain)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { decorateSidebar } = await import("./decoration");
+  const { sidebarIcons } = await import("./store");
+  const row = `<span class="flex"><span class="truncate pc-project-label" style="--pc-color: #3cca18">Проект</span><button data-sidebar-rename-anchor aria-expanded="true">v</button></span>`;
+  const dom = setup(`<div data-sidebar-project-id="p1">${row}</div>`);
+  // The two real stylesheets: ours and the one «Цвета проектов» ships.
+  const style = document.createElement("style");
+  style.textContent = `${readFileSync(new URL("./style.css", import.meta.url), "utf8")}\n.pc-project-label{box-shadow:inset 0 -2px var(--pc-color);padding-bottom:3px;}`;
+  document.head.append(style);
+  const control = new AbortController();
+  decorateSidebar(control.signal);
+  const label = () => document.querySelector<HTMLElement>(".pc-project-label")!;
+  const shadow = () => dom.window.getComputedStyle(label()).boxShadow;
+  const icon = (assignedAt?: number) => new Map<string, any>([["p1", { url: "/i?id=a", name: "A", state: "idle", ...(assignedAt === undefined ? {} : { assignedAt }) }]]);
+  const iconCount = () => document.querySelectorAll(".pi-project-icon").length;
+
+  assert.match(shadow(), /inset/, "no icon: the underline is there");
+
+  // 1. Icon, then «Без иконки» (the picker and the command give the same store update).
+  sidebarIcons.set(icon(1000));
+  await settle();
+  assert.equal(shadow(), "none", "icon set: underline hidden");
+  sidebarIcons.set(new Map());
+  await settle();
+  assert.equal(iconCount(), 0);
+  assert.match(shadow(), /inset/, "icon removed: underline is back");
+  assert.ok(!document.querySelector(".pi-no-underline"), "no leftover class");
+
+  // 2. Icon, then colour picked by hand (later), then the icon removed.
+  sidebarIcons.set(icon(2000));
+  await settle();
+  assert.equal(shadow(), "none");
+  label().setAttribute("data-pc-chosen-at", "3000");
+  await settle();
+  assert.match(shadow(), /inset/, "colour picked after the icon: underline shows");
+  sidebarIcons.set(new Map());
+  await settle();
+  assert.match(shadow(), /inset/, "icon removed after the colour: underline stays");
+  assert.equal(label().getAttribute("style")?.includes("--pc-color"), true, "the colour variable is untouched");
+
+  // 3. Icon assigned after the colour (hidden), removed (back), re-assigned and removed again.
+  sidebarIcons.set(icon(4000));
+  await settle();
+  assert.equal(shadow(), "none");
+  sidebarIcons.set(new Map());
+  await settle();
+  assert.match(shadow(), /inset/);
+  sidebarIcons.set(icon(5000));
+  await settle();
+  assert.equal(shadow(), "none");
+  sidebarIcons.set(new Map());
+  await settle();
+  assert.match(shadow(), /inset/);
+
+  // 4. The row is redrawn by the app (a new label element) while the icon is on, then the icon is removed.
+  sidebarIcons.set(icon(6000));
+  await settle();
+  const old = label();
+  const fresh = old.cloneNode(true) as HTMLElement;
+  fresh.setAttribute("data-pc-chosen-at", "3000");
+  old.replaceWith(fresh);
+  await settle();
+  assert.equal(document.querySelectorAll(".pi-project-icon").length, 1, "one icon, not two");
+  assert.equal(fresh.previousElementSibling?.classList.contains("pi-project-icon"), true);
+  sidebarIcons.set(new Map());
+  await settle();
+  assert.equal(iconCount(), 0);
+  assert.match(dom.window.getComputedStyle(fresh).boxShadow, /inset/, "new label: underline is back");
+
+  // 5. Page reload with the icon already removed: a fresh decorator draws nothing and hides nothing.
+  control.abort();
+  const again = new AbortController();
+  decorateSidebar(again.signal);
+  sidebarIcons.set(new Map());
+  await settle();
+  assert.equal(iconCount(), 0);
+  assert.match(dom.window.getComputedStyle(fresh).boxShadow, /inset/);
+  again.abort();
   sidebarIcons.set(new Map());
   dom.window.close();
 });

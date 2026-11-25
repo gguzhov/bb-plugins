@@ -95,6 +95,9 @@ function standardFixture() {
   );
 }
 
+/** Pack folder that does not exist: tests never read the real personal pack. */
+const NO_PACK = join(tmpdir(), "pi-no-such-pack");
+
 function host() {
   return createFakePluginHost({
     pluginId: "genidev-project-icons",
@@ -151,10 +154,10 @@ test("manifest: frames present, missing, broken; group ignored", () => {
     assert.deepEqual(loaded.icons[1].frames, {});
     assert.deepEqual(loaded.icons[2].frames, {}, "missing frame file: icon stays, frame skipped");
     const text = loaded.problems.join("\n");
-    assert.match(text, /one: кадр puzzled/);
-    assert.match(text, /one: неизвестный кадр wink/);
-    assert.match(text, /one: кадр right — недопустимое имя/);
-    assert.match(text, /three: кадр left — нет файла/);
+    assert.match(text, /one: frame puzzled/);
+    assert.match(text, /one: unknown frame wink/);
+    assert.match(text, /one: frame right has an invalid file name/);
+    assert.match(text, /three: frame left: file not found/);
     assert.equal(loaded.problems.length, 7);
   } finally {
     done();
@@ -167,10 +170,10 @@ test("broken frames are logged on load and the icon stays in the library", async
   ]);
   try {
     const { bb, harness } = host();
-    await createPlugin({ root })(bb);
+    await createPlugin({ root, defaultPackDir: NO_PACK })(bb);
     const state: any = await harness.behavior.callRpc("state", null);
     assert.deepEqual(state.icons.map((icon: any) => [icon.id, icon.frames]), [["one", {}]]);
-    assert.ok(harness.inspection.logEntries.some((entry) => entry.level === "warn" && /кадр puzzled/.test(entry.message)));
+    assert.ok(harness.inspection.logEntries.some((entry) => entry.level === "warn" && /frame puzzled/.test(entry.message)));
     await harness.lifecycle.dispose();
   } finally {
     done();
@@ -181,11 +184,11 @@ test("animation setting is declared, on by default", async () => {
   const { root, done } = standardFixture();
   try {
     const { bb, harness } = host();
-    await createPlugin({ root })(bb);
+    await createPlugin({ root, defaultPackDir: NO_PACK })(bb);
     const descriptor: any = (harness.inspection.registrations.settingsDescriptors as any).animation;
     assert.equal(descriptor.type, "boolean");
     assert.equal(descriptor.default, true);
-    assert.equal(descriptor.label, "Анимация иконок");
+    assert.equal(descriptor.label, "Icon animation");
     await harness.lifecycle.dispose();
   } finally {
     done();
@@ -195,7 +198,7 @@ test("animation setting is declared, on by default", async () => {
 test("RPC: one ordered library, select, validate, add, remove, persist", async () => {
   const { root, done } = standardFixture();
   try {
-    const plugin = createPlugin({ root });
+    const plugin = createPlugin({ root, defaultPackDir: NO_PACK });
     let { bb, harness } = host();
     await plugin(bb);
     const state: any = await harness.behavior.callRpc("state", null);
@@ -248,7 +251,7 @@ test("HTTP: main pictures and frames only for library ids and known frame names"
   const { root, done } = standardFixture();
   try {
     const { bb, harness } = host();
-    await createPlugin({ root })(bb);
+    await createPlugin({ root, defaultPackDir: NO_PACK })(bb);
     const ok = await harness.behavior.fetchHttp("GET", "/icon?id=cat");
     assert.equal(ok.status, 200);
     assert.equal(ok.headers.get("content-type"), "image/png");
@@ -303,7 +306,7 @@ test("CLI: list, icons with frames, set, add, remove", async () => {
   const dir = mkdtempSync(join(tmpdir(), "pi-cli-"));
   try {
     const { bb, harness } = host();
-    await createPlugin({ root })(bb);
+    await createPlugin({ root, defaultPackDir: NO_PACK })(bb);
     writeFileSync(join(dir, "wide.png"), png(300, 200));
     writeFileSync(join(dir, "fake.png"), "<svg xmlns='http://www.w3.org/2000/svg'/>");
     const icons = JSON.parse((await harness.behavior.runCli(["icons", "--json"])).stdout);
@@ -382,7 +385,7 @@ test("assignment moment: stored on set, refreshed on re-set, 0 for rows saved be
     const handle = bb.storage.database();
     bb.storage.migrate(handle, MIGRATIONS.slice(0, 2));
     handle.prepare("INSERT INTO project_icons (project_id, icon_id) VALUES ('p2', 'dog')").run();
-    await createPlugin({ root })(bb);
+    await createPlugin({ root, defaultPackDir: NO_PACK })(bb);
 
     let state: any = await harness.behavior.callRpc("state", null);
     assert.deepEqual(state.projects.map((p: any) => [p.iconId, p.assignedAt]), [[null, 0], ["dog", 0]], "old assignment reads with moment 0");
@@ -405,6 +408,224 @@ test("assignment moment: stored on set, refreshed on re-set, 0 for rows saved be
 
     const list = JSON.parse((await harness.behavior.runCli(["list", "--json"])).stdout);
     assert.deepEqual(Object.keys(list[0]), ["id", "name", "iconId", "iconName"], "list output is unchanged");
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});
+
+test("frames alert and happy: in the manifest, over RPC and over HTTP; a missing one stays missing", async () => {
+  const { root, done } = fixture(
+    {
+      "fox.png": png(96, 96),
+      "fox.alert.png": png(96, 96, 0x30),
+      "fox.happy.webp": webp(96, 96),
+      "owl.png": png(96, 96),
+      "owl.alert.png": png(96, 96, 0x31),
+      "owl.left.png": png(96, 96, 0x11),
+      "bad.png": png(96, 96),
+      "bad.happy.webp": "<svg/>",
+    },
+    [
+      { id: "fox", file: "fox.png", name: "Лис", frames: { alert: "fox.alert.png", happy: "fox.happy.webp" } },
+      { id: "owl", file: "owl.png", name: "Сова", frames: { alert: "owl.alert.png", left: "owl.left.png", happy: "nope.webp" } },
+      { id: "bad", file: "bad.png", name: "Битая", frames: { happy: "bad.happy.webp" } },
+    ],
+  );
+  try {
+    const loaded = loadBundledIcons(root);
+    assert.deepEqual(Object.keys(loaded.icons[0].frames).sort(), ["alert", "happy"]);
+    assert.deepEqual(Object.keys(loaded.icons[1].frames).sort(), ["alert", "left"], "missing happy file is skipped");
+    assert.deepEqual(loaded.icons[2].frames, {}, "broken happy frame is skipped");
+
+    const { bb, harness } = host();
+    await createPlugin({ root, defaultPackDir: NO_PACK })(bb);
+    const state: any = await harness.behavior.callRpc("state", null);
+    const [fox, owl, bad] = state.icons;
+    assert.deepEqual(Object.keys(fox.frames).sort(), ["alert", "happy"]);
+    assert.match(fox.frames.alert, /id=fox&frame=alert&v=[0-9a-f]{16}$/);
+    assert.match(fox.frames.happy, /id=fox&frame=happy&v=[0-9a-f]{16}$/);
+    assert.equal(owl.frames.happy, undefined);
+    assert.deepEqual(bad.frames, {});
+
+    const alert = await harness.behavior.fetchHttp("GET", "/icon?id=fox&frame=alert");
+    const happy = await harness.behavior.fetchHttp("GET", "/icon?id=fox&frame=happy");
+    assert.deepEqual([alert.status, alert.headers.get("content-type")], [200, "image/png"]);
+    assert.deepEqual([happy.status, happy.headers.get("content-type")], [200, "image/webp"]);
+    const main = Buffer.from(await (await harness.behavior.fetchHttp("GET", "/icon?id=fox")).arrayBuffer());
+    assert.notDeepEqual(Buffer.from(await alert.arrayBuffer()), main, "the alert frame is its own file");
+    assert.equal((await harness.behavior.fetchHttp("GET", "/icon?id=owl&frame=happy")).status, 404);
+    assert.equal((await harness.behavior.fetchHttp("GET", "/icon?id=fox&frame=scared")).status, 400);
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});
+
+// ---- 0.3.1: icon for a new project ----
+
+/** Library of `names` (ids = names) plus a mutable project list. */
+function autoFixture(ids: string[]) {
+  const files: Record<string, Buffer> = {};
+  for (const id of ids) files[`${id}.png`] = png(96, 96);
+  return fixture(files, ids.map((id) => ({ id, file: `${id}.png`, name: id })));
+}
+
+function autoHost(initial: string[]) {
+  const projects = initial.map((id) => ({ id, name: `Проект ${id}` }));
+  const made = createFakePluginHost({
+    pluginId: "genidev-project-icons",
+    sdk: { projects: { list: async () => projects.map((p) => ({ ...p })) as never } },
+  });
+  return { ...made, projects };
+}
+
+const projectsOf = async (harness: any): Promise<any[]> => ((await harness.behavior.callRpc("state", null)) as any).projects;
+
+test("auto icon: projects that exist on the first run are known and get nothing", async () => {
+  const { root, done } = autoFixture(["a", "b", "c"]);
+  try {
+    const { bb, harness } = autoHost(["p1", "p2"]);
+    await createPlugin({ root, defaultPackDir: NO_PACK })(bb);
+    assert.deepEqual((await projectsOf(harness)).map((p) => [p.iconId, p.auto]), [[null, false], [null, false]]);
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});
+
+test("auto icon: a new project gets a free icon, two new ones get different icons, log has ids only", async () => {
+  const { root, done } = autoFixture(["a", "b", "c", "d"]);
+  try {
+    const plugin = createPlugin({ root, defaultPackDir: NO_PACK });
+    const { bb, harness, projects } = autoHost(["p1"]);
+    await plugin(bb);
+    await harness.behavior.callRpc("setIcon", { projectId: "p1", iconId: "a" });
+    projects.push({ id: "p2", name: "Секретное имя" }, { id: "p3", name: "Другое имя" });
+    const state = await projectsOf(harness);
+    const [p1, p2, p3] = state;
+    assert.deepEqual([p1.iconId, p1.auto], ["a", false]);
+    assert.ok(p2.iconId && p3.iconId && p2.iconId !== p3.iconId);
+    assert.ok(![p2.iconId, p3.iconId].includes("a"), "the icon of another project is not taken");
+    assert.deepEqual([p2.auto, p3.auto], [true, true]);
+    assert.ok(p2.assignedAt > 0);
+    const lines = harness.inspection.logEntries.filter((entry) => /auto icon: project/.test(entry.message));
+    assert.equal(lines.length, 2);
+    assert.ok(lines.every((entry) => !/имя/.test(entry.message)));
+    // same answer on the next request, nothing new is assigned
+    assert.deepEqual((await projectsOf(harness)).map((p) => p.iconId), state.map((p) => p.iconId));
+    // a manual choice clears the "auto" mark
+    await harness.behavior.callRpc("setIcon", { projectId: "p2", iconId: "d" });
+    assert.deepEqual((await projectsOf(harness))[1].auto, false);
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});
+
+test("auto icon: a thread event nudges the comparison", async () => {
+  const { root, done } = autoFixture(["a", "b"]);
+  try {
+    const { bb, harness, projects } = autoHost(["p1"]);
+    await createPlugin({ root, defaultPackDir: NO_PACK })(bb);
+    await projectsOf(harness);
+    projects.push({ id: "p2", name: "Новый" });
+    await harness.behavior.emitThreadEvent("thread.created", { thread: { id: "t1", projectId: "p2" } } as never);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const row: any = (await projectsOf(harness)).find((p) => p.id === "p2");
+    assert.equal(row.auto, true);
+    assert.ok(harness.inspection.logEntries.some((entry) => /project p2, icon/.test(entry.message)));
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});
+
+test("auto icon: an icon the owner removed does not come back, also after a reload", async () => {
+  const { root, done } = autoFixture(["a", "b", "c"]);
+  try {
+    const plugin = createPlugin({ root, defaultPackDir: NO_PACK });
+    let { bb, harness, projects } = autoHost(["p1"]);
+    await plugin(bb);
+    await projectsOf(harness);
+    projects.push({ id: "p2", name: "Новый" });
+    assert.equal(((await projectsOf(harness)) as any[])[1].auto, true);
+    await harness.behavior.callRpc("setIcon", { projectId: "p2", iconId: null });
+    assert.equal(((await projectsOf(harness)) as any[])[1].iconId, null);
+    harness = (await harness.lifecycle.reload(plugin)).harness;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.deepEqual(((await projectsOf(harness)) as any[])[1], { id: "p2", name: "Новый", iconId: null, assignedAt: 0, auto: false });
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});
+
+test("auto icon: leader- icons are never picked; when nothing is free an icon repeats", async () => {
+  const { root, done } = autoFixture(["leader-x", "leader-y", "a", "b"]);
+  try {
+    const { bb, harness, projects } = autoHost(["p0"]);
+    await createPlugin({ root, defaultPackDir: NO_PACK })(bb);
+    await projectsOf(harness);
+    for (let i = 1; i <= 12; i += 1) projects.push({ id: `n${i}`, name: `N${i}` });
+    const state = await projectsOf(harness);
+    const icons = state.slice(1).map((p) => p.iconId);
+    assert.ok(icons.every((id) => id === "a" || id === "b"), `got ${icons.join()}`);
+    assert.ok(icons.every((id) => !!id), "repeat allowed when all are used");
+    assert.deepEqual(new Set(icons.slice(0, 2)).size, 2, "the first two take the two free icons");
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});
+
+test("auto icon: setting declared, on by default; when off new projects are only remembered", async () => {
+  const { root, done } = autoFixture(["a", "b"]);
+  try {
+    const plugin = createPlugin({ root, defaultPackDir: NO_PACK });
+    let { bb, harness, projects } = autoHost(["p1"]);
+    await plugin(bb);
+    const descriptor: any = (harness.inspection.registrations.settingsDescriptors as any).autoAssign;
+    assert.deepEqual([descriptor.type, descriptor.default, descriptor.label], ["boolean", true, "Give new projects an icon"]);
+    await projectsOf(harness);
+    await harness.behavior.setSettings({ autoAssign: false });
+    projects.push({ id: "p2", name: "Новый" });
+    assert.equal(((await projectsOf(harness)) as any[])[1].iconId, null);
+    await harness.behavior.setSettings({ autoAssign: true });
+    assert.equal(((await projectsOf(harness)) as any[])[1].iconId, null, "no backdated icon");
+    projects.push({ id: "p3", name: "Ещё" });
+    assert.equal(((await projectsOf(harness)) as any[])[2].auto, true, "a project created after turning it on gets one");
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});
+
+test("auto icon: an empty library does not break the plugin", async () => {
+  const { root, done } = fixture({}, []);
+  try {
+    const { bb, harness, projects } = autoHost(["p1"]);
+    await createPlugin({ root, defaultPackDir: NO_PACK })(bb);
+    await projectsOf(harness);
+    projects.push({ id: "p2", name: "Новый" });
+    assert.deepEqual((await projectsOf(harness)).map((p) => p.iconId), [null, null]);
+    assert.equal(harness.inspection.logEntries.filter((entry) => entry.level === "warn" && /auto icon/.test(entry.message)).length, 0);
+    await harness.lifecycle.dispose();
+  } finally {
+    done();
+  }
+});
+
+test("auto icon: CLI list marks automatic icons", async () => {
+  const { root, done } = autoFixture(["a"]);
+  try {
+    const { bb, harness, projects } = autoHost(["p1"]);
+    await createPlugin({ root, defaultPackDir: NO_PACK })(bb);
+    await projectsOf(harness);
+    projects.push({ id: "p2", name: "Новый" });
+    const json = JSON.parse((await harness.behavior.runCli(["list", "--json"])).stdout);
+    assert.deepEqual(json.map((p: any) => p.auto ?? false), [false, true]);
+    assert.match((await harness.behavior.runCli(["list"])).stdout, /Новый \(p2\): a \(a\) \(auto\)/);
     await harness.lifecycle.dispose();
   } finally {
     done();

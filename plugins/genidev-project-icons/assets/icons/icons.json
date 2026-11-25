@@ -301,7 +301,9 @@
   "frames": {
    "left": "ball-rabbit.left.webp",
    "right": "ball-rabbit.right.webp",
-   "puzzled": "ball-rabbit.puzzled.webp"
+   "puzzled": "ball-rabbit.puzzled.webp",
+   "alert": "ball-rabbit.alert.webp",
+   "happy": "ball-rabbit.happy.webp"
   }
  },
  {
@@ -311,7 +313,9 @@
   "frames": {
    "left": "ball-hedgehog.left.webp",
    "right": "ball-hedgehog.right.webp",
-   "puzzled": "ball-hedgehog.puzzled.webp"
+   "puzzled": "ball-hedgehog.puzzled.webp",
+   "alert": "ball-hedgehog.alert.webp",
+   "happy": "ball-hedgehog.happy.webp"
   }
  },
  {
@@ -321,7 +325,9 @@
   "frames": {
    "left": "ball-piglet.left.webp",
    "right": "ball-piglet.right.webp",
-   "puzzled": "ball-piglet.puzzled.webp"
+   "puzzled": "ball-piglet.puzzled.webp",
+   "alert": "ball-piglet.alert.webp",
+   "happy": "ball-piglet.happy.webp"
   }
  },
  {
@@ -331,7 +337,9 @@
   "frames": {
    "left": "ball-ram.left.webp",
    "right": "ball-ram.right.webp",
-   "puzzled": "ball-ram.puzzled.webp"
+   "puzzled": "ball-ram.puzzled.webp",
+   "alert": "ball-ram.alert.webp",
+   "happy": "ball-ram.happy.webp"
   }
  },
  {
@@ -341,17 +349,57 @@
   "frames": {
    "left": "ball-moose.left.webp",
    "right": "ball-moose.right.webp",
-   "puzzled": "ball-moose.puzzled.webp"
+   "puzzled": "ball-moose.puzzled.webp",
+   "alert": "ball-moose.alert.webp",
+   "happy": "ball-moose.happy.webp"
   }
  },
  {
   "id": "ball-pilot",
   "file": "ball-pilot.webp",
-  "name": "Пингвин-лётчик",
+  "name": "Пингвин-изобретатель",
   "frames": {
    "left": "ball-pilot.left.webp",
    "right": "ball-pilot.right.webp",
-   "puzzled": "ball-pilot.puzzled.webp"
+   "puzzled": "ball-pilot.puzzled.webp",
+   "alert": "ball-pilot.alert.webp",
+   "happy": "ball-pilot.happy.webp"
+  }
+ },
+ {
+  "id": "ball-bear",
+  "file": "ball-bear.webp",
+  "name": "Медведь",
+  "frames": {
+   "left": "ball-bear.left.webp",
+   "right": "ball-bear.right.webp",
+   "puzzled": "ball-bear.puzzled.webp",
+   "alert": "ball-bear.alert.webp",
+   "happy": "ball-bear.happy.webp"
+  }
+ },
+ {
+  "id": "ball-owl",
+  "file": "ball-owl.webp",
+  "name": "Сова",
+  "frames": {
+   "left": "ball-owl.left.webp",
+   "right": "ball-owl.right.webp",
+   "puzzled": "ball-owl.puzzled.webp",
+   "alert": "ball-owl.alert.webp",
+   "happy": "ball-owl.happy.webp"
+  }
+ },
+ {
+  "id": "ball-raven",
+  "file": "ball-raven.webp",
+  "name": "Ворон",
+  "frames": {
+   "left": "ball-raven.left.webp",
+   "right": "ball-raven.right.webp",
+   "puzzled": "ball-raven.puzzled.webp",
+   "alert": "ball-raven.alert.webp",
+   "happy": "ball-raven.happy.webp"
   }
  }
 ]

@@ -11,17 +11,39 @@ import { sidebarIcons, type SidebarIcon } from "./store";
 
 export const ICON_CLASS = "pi-project-icon";
 
-/** What the icon shows; null = still main picture. */
-export type AnimMode = "eyes" | "wiggle" | "still" | "puzzled" | "badge" | null;
+/**
+ * What the icon shows; null = still main picture, no badge.
+ * - eyes / wiggle: working (with and without left/right frames);
+ * - puzzled: waiting, puzzled frame tilting; alert: error, scared frame shaking;
+ *   shake: error without an alert frame, the main picture shakes;
+ * - happy: done, happy frame, still;
+ * - badge: a state with a badge but no motion and no frame (animation off, or no frame);
+ * - still: working with animation off.
+ */
+export type AnimMode = "eyes" | "wiggle" | "still" | "puzzled" | "alert" | "shake" | "happy" | "badge" | null;
+
+/** The corner badge each state carries, always (animation setting and reduced motion do not remove it). */
+export type BadgeKind = "wait" | "error" | "done";
+
+export function badgeKind(icon: SidebarIcon): BadgeKind | null {
+  if (icon.state === "waiting") return "wait";
+  if (icon.state === "error") return "error";
+  if (icon.state === "done") return "done";
+  return null;
+}
+
+const BADGE_TEXT: Record<BadgeKind, string> = { wait: "?", error: "!", done: "" };
 
 export function animMode(icon: SidebarIcon): AnimMode {
   const animate = icon.animate !== false;
   const frames = icon.frames ?? {};
+  if (icon.state === "error") return !animate ? "badge" : frames.alert ? "alert" : "shake";
   if (icon.state === "waiting") return animate && frames.puzzled ? "puzzled" : "badge";
   if (icon.state === "working") {
     if (!animate) return "still";
     return frames.left && frames.right ? "eyes" : "wiggle";
   }
+  if (icon.state === "done") return animate && frames.happy ? "happy" : "badge";
   return null;
 }
 
@@ -48,12 +70,14 @@ function frameImg(kind: string): HTMLImageElement {
   return img;
 }
 
-/** Children the icon needs for its mode: [class suffix, url] pairs, plus the badge. */
+/** Children the icon needs for its mode: [class suffix, url] pairs (the badge is separate). */
 function layers(icon: SidebarIcon, mode: AnimMode): [string, string][] {
   const frames = icon.frames ?? {};
   const list: [string, string][] = [["base", icon.url]];
   if (mode === "eyes") list.push(["left", frames.left!], ["right", frames.right!]);
   if (mode === "puzzled") list.push(["puzzled", frames.puzzled!]);
+  if (mode === "alert") list.push(["alert", frames.alert!]);
+  if (mode === "happy") list.push(["happy", frames.happy!]);
   return list;
 }
 
@@ -99,13 +123,17 @@ export function renderIcon(span: HTMLElement, icon: SidebarIcon, colourChosenAt 
     }
     if (img.getAttribute("src") !== url) img.src = url;
   }
+  const kind = badgeKind(icon);
   let badge = span.querySelector<HTMLElement>(":scope > .pi-badge");
-  if (mode === "badge" && !badge) {
-    badge = document.createElement("span");
-    badge.className = "pi-badge";
-    badge.textContent = "?";
-    span.append(badge);
-  } else if (mode !== "badge" && badge) {
+  if (kind) {
+    if (!badge) {
+      badge = document.createElement("span");
+      span.append(badge);
+    }
+    const className = `pi-badge pi-badge-${kind}`;
+    if (badge.className !== className) badge.className = className;
+    if (badge.textContent !== BADGE_TEXT[kind]) badge.textContent = BADGE_TEXT[kind];
+  } else if (badge) {
     badge.remove();
   }
 }
