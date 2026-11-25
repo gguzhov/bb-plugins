@@ -2,6 +2,7 @@
 // the thread's event history. Pure: no SDK imports, so tests run it directly.
 
 import { dict, pluralRu, type Lang } from "./i18n.ts";
+import { sanitizeError } from "./agent-error.ts";
 
 export type ExecutorState = "running" | "done" | "error" | "stopped";
 /** What a running agent does right now: the latest tool call inside it. kind: command, read, edit, search, web, tool, think, agent. */
@@ -29,6 +30,8 @@ export type Executor = {
  toolUses: number | null;
  tokens: number | null;
  summary: string | null;
+ /** Raw error text from the log of a failed run (cleaned later by `explainError`); null when none was recorded. */
+ error?: string | null;
  /** Seq of the message just before the launch: what a `#msg=` link can address. */
  launchSeq?: number | null;
  agentType: string | null;
@@ -39,14 +42,14 @@ export type Executor = {
  action?: Action | null;
 };
 
-type Delegation = { seq?: number; leaderModel?: string; id: string; label: string; detail: string; childRef: string; status: string; summary?: string; model?: string; createdAt: number; endedAt?: number; nested: boolean };
+type Delegation = { seq?: number; leaderModel?: string; id: string; label: string; detail: string; childRef: string; status: string; summary?: string; error?: string; model?: string; createdAt: number; endedAt?: number; nested: boolean };
 type Usage = { totalTokens: number; toolUses: number; durationMs: number };
-type Run = { seq?: number; id: string; familyId: string; parent: string; description: string; status: string; startedAt: number; endedAt?: number; usage?: Usage; summary?: string; model?: string };
-export type AgentLog = { version: 1; /** Seq of the latest message (reply or user request) seen so far. */ lastMsgSeq?: number; /** Set once launch seqs are recorded; older logs are re-read. */ msgAnchors?: true; lastSeq: number; leaderModel?: string; delegations: Record<string, Delegation>; runs: Record<string, Run> };
+type Run = { seq?: number; id: string; familyId: string; parent: string; description: string; status: string; startedAt: number; endedAt?: number; usage?: Usage; summary?: string; error?: string; model?: string };
+export type AgentLog = { version: 1; /** Seq of the latest message (reply or user request) seen so far. */ lastMsgSeq?: number; /** Set once launch seqs are recorded; older logs are re-read. */ msgAnchors?: true; /** Set once error texts are recorded; older logs are re-read. */ errAnchors?: true; lastSeq: number; leaderModel?: string; delegations: Record<string, Delegation>; runs: Record<string, Run> };
 export type ThreadEvent = { seq: number | string; type: string; createdAt?: number | string; data?: unknown };
 
 export const AGENT_EVENT_TYPES = ["client/turn/requested", "item/started", "item/completed", "item/backgroundTask/progress", "item/backgroundTask/completed", "item/delegation/completed", "item/delegation/progress"] as const;
-export const emptyLog = (): AgentLog => ({ version: 1, msgAnchors: true, lastSeq: 0, delegations: {}, runs: {} });
+export const emptyLog = (): AgentLog => ({ version: 1, msgAnchors: true, errAnchors: true, lastSeq: 0, delegations: {}, runs: {} });
 
 const SUMMARY_MAX = 2000;
 const rec = (v: unknown): Record<string, unknown> | null => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
@@ -82,6 +85,7 @@ export function applyEvents(log: AgentLog, events: readonly ThreadEvent[]): Agen
    const presentation = rec(item.presentation);
    const status = str(item.status) ?? prev?.status ?? "pending";
    const summary = str(item.summary);
+   const rawError = str(item.error), error = rawError ? sanitizeError(rawError) : prev?.error;
    const model = str(item.model) ?? prev?.model;
    log.delegations[id] = {
     seq: prev?.seq ?? log.lastMsgSeq ?? seq,
@@ -91,6 +95,7 @@ export function applyEvents(log: AgentLog, events: readonly ThreadEvent[]): Agen
     childRef: str(item.childRef) ?? prev?.childRef ?? "",
     status,
     ...(summary && !LAUNCH_NOTICE.test(summary) ? { summary: clip(summary) } : prev?.summary ? { summary: prev.summary } : {}),
+    ...(error ? { error: clip(error) } : {}),
     ...(model ? { model } : {}),
     createdAt: prev?.createdAt ?? at,
     ...(status !== "pending" ? { endedAt: prev?.endedAt ?? at } : {}),
@@ -105,6 +110,7 @@ export function applyEvents(log: AgentLog, events: readonly ThreadEvent[]): Agen
    const taskStatus = str(item.taskStatus) ?? prev?.status ?? "running";
    const finished = !/^(running|pending)$/.test(taskStatus);
    const summary = str(item.summary);
+   const rawError = str(item.error), error = rawError ? sanitizeError(rawError) : prev?.error;
    const model = str(item.model) ?? prev?.model;
    log.runs[id] = {
     seq: prev?.seq ?? log.lastMsgSeq ?? seq,
@@ -117,6 +123,7 @@ export function applyEvents(log: AgentLog, events: readonly ThreadEvent[]): Agen
     ...(finished ? { endedAt: prev?.endedAt ?? at } : {}),
     ...((usageOf(item.usage) ?? prev?.usage) ? { usage: usageOf(item.usage) ?? prev!.usage } : {}),
     ...((clip(summary) ?? prev?.summary) ? { summary: clip(summary) ?? prev!.summary } : {}),
+    ...(error ? { error: clip(error) } : {}),
     ...(model ? { model } : {}),
    };
   }
@@ -164,7 +171,10 @@ export function deriveSubagents(log: AgentLog, activeRunIds?: ReadonlySet<string
   const tokens = runs.some(r => r.usage) ? Math.max(...runs.map(r => r.usage?.totalTokens ?? 0)) : null;
   const detail = parseDetail(launch?.detail ?? "");
   const actual = [...runs].reverse().find(r => r.model)?.model ?? launch?.model ?? null;
-  const summary = [...runs].reverse().find(r => r.summary)?.summary ?? launch?.summary ?? null;
+  const error = state === "error" ? (last.error ?? null) : null;
+  let summary = [...runs].reverse().find(r => r.summary)?.summary ?? launch?.summary ?? null;
+  // A failed run repeats its error as the summary: show the reason once, cleaned.
+  if (summary && error && sanitizeError(summary) === error) summary = null;
   out.push({
    leaderModel: launch?.leaderModel ?? null,
    id: "agent:" + familyId,
@@ -181,6 +191,7 @@ export function deriveSubagents(log: AgentLog, activeRunIds?: ReadonlySet<string
    toolUses,
    tokens,
    summary,
+   ...(state === "error" ? { error } : {}),
    launchSeq: launch?.seq ?? runs[0].seq ?? null,
    agentType: detail.agentType,
    ...(state === "running" && actions?.[last.parent] ? { action: actions[last.parent] } : {}),
@@ -208,6 +219,7 @@ export function deriveSubagents(log: AgentLog, activeRunIds?: ReadonlySet<string
    toolUses: null,
    tokens: null,
    summary: d.summary ?? null,
+   ...(state === "error" ? { error: d.error ?? null } : {}),
    launchSeq: d.seq ?? null,
    agentType: detail.agentType,
    ...(state === "running" && actions?.[d.id] ? { action: actions[d.id] } : {}),
@@ -216,11 +228,23 @@ export function deriveSubagents(log: AgentLog, activeRunIds?: ReadonlySet<string
  return out;
 }
 
-/** Running first (newest start first), then finished by end time, newest first. */
+/** Running first (newest start first), then failed (newest first), then the rest by end time, newest first. Names are not touched: they follow launch order. */
 export function sortExecutors(list: Executor[]): Executor[] {
  const running = list.filter(x => x.state === "running").sort((a, b) => (b.activeSince ?? b.startedAt ?? 0) - (a.activeSince ?? a.startedAt ?? 0));
- const rest = list.filter(x => x.state !== "running").sort((a, b) => (b.endedAt ?? b.startedAt ?? 0) - (a.endedAt ?? a.startedAt ?? 0));
- return [...running, ...rest];
+ const byEnd = (a: Executor, b: Executor) => (b.endedAt ?? b.startedAt ?? 0) - (a.endedAt ?? a.startedAt ?? 0);
+ const failed = list.filter(x => x.state === "error").sort(byEnd);
+ const rest = list.filter(x => x.state !== "running" && x.state !== "error").sort(byEnd);
+ return [...running, ...failed, ...rest];
+}
+
+/** The rows of the card: the first `limit` of a sorted list, but if anyone failed and no failed row fits, the last shown row gives way to the newest failed one. */
+export function cardRows<T extends Pick<Executor, "state">>(sorted: readonly T[], limit = 3): { shown: T[]; rest: number } {
+ const shown = sorted.slice(0, Math.max(0, limit));
+ if (shown.length && !shown.some(x => x.state === "error")) {
+  const failed = sorted.find(x => x.state === "error");
+  if (failed) shown[shown.length - 1] = failed;
+ }
+ return { shown, rest: sorted.length - shown.length };
 }
 
 /** How many executors are in each state. Stopped is counted apart: it is neither done nor an error. */

@@ -9,7 +9,7 @@ import { agentName, ordinals } from "./agent-names";
 import { readEventPage } from "./event-page";
 const threadIdSchema=z.string().regex(/^thr_[a-z0-9]+$/);
 const itemSchema=z.object({id:z.string(),title:z.string(),href:z.string(),group:z.enum(["result","source"]),manual:z.boolean(),storage:z.boolean().optional(),hostId:z.string().optional(),originThreadId:z.string().optional()});
-const executorSchema=z.object({leaderModel:z.string().nullable().optional(),id:z.string(),title:z.string(),kind:z.enum(["subagent","thread"]),state:z.enum(["running","done","error","stopped"]),threadId:z.string().nullable(),model:z.string().nullable(),modelSource:z.enum(["actual","requested","inherited"]),startedAt:z.number().nullable(),endedAt:z.number().nullable(),activeSince:z.number().nullable(),durationMs:z.number().nullable(),toolUses:z.number().nullable(),tokens:z.number().nullable(),summary:z.string().nullable(),launchSeq:z.number().nullable().optional(),agentType:z.string().nullable(),name:z.string().optional(),ordinal:z.number().optional(),action:z.object({kind:z.string(),detail:z.string(),at:z.number()}).nullable().optional()});
+const executorSchema=z.object({leaderModel:z.string().nullable().optional(),id:z.string(),title:z.string(),kind:z.enum(["subagent","thread"]),state:z.enum(["running","done","error","stopped"]),threadId:z.string().nullable(),model:z.string().nullable(),modelSource:z.enum(["actual","requested","inherited"]),startedAt:z.number().nullable(),endedAt:z.number().nullable(),activeSince:z.number().nullable(),durationMs:z.number().nullable(),toolUses:z.number().nullable(),tokens:z.number().nullable(),summary:z.string().nullable(),error:z.string().nullable().optional(),launchSeq:z.number().nullable().optional(),agentType:z.string().nullable(),name:z.string().optional(),ordinal:z.number().optional(),action:z.object({kind:z.string(),detail:z.string(),at:z.number()}).nullable().optional()});
 const ticketSchema=z.object({code:z.string(),status:z.enum(["pending","active","review","done","error","skipped"]),accepted:z.number().optional(),criteria:z.number().optional(),startedAt:z.number().optional(),plan:z.string(),planUpdatedAt:z.number()});
 const gitOutput=z.union([gitChangesSchema,z.object({kind:z.literal("no-env")})]);
 const addSchema=z.object({threadId:threadIdSchema,title:z.string().trim().min(1).max(240),href:z.string().max(4096),group:z.enum(["result","source"])});
@@ -50,7 +50,7 @@ export default function plugin(bb:BbPluginApi){
   pending=(async()=>{
    const stored=await bb.storage.kv.get<AgentLog>("agent-log:"+threadId);
    // v1 logs written before leader-model tracking are re-read once from the start.
-   const log=stored?.version===1&&stored.leaderModel!==undefined&&stored.msgAnchors?stored:emptyLog();
+   const log=stored?.version===1&&stored.leaderModel!==undefined&&stored.msgAnchors&&stored.errAnchors?stored:emptyLog();
    const before=log.lastSeq;let partial=true;
    let pageSize=EVENT_PAGE;
    for(let page=0;page<EVENT_PAGES;page++){

@@ -194,3 +194,9 @@ p.tm-pop-muted{margin-top:4px}
 .tm-sum-stopped{color:var(--muted-foreground)}
 .tm-wsum{display:flex;flex-wrap:wrap;align-items:center;column-gap:5px;margin:0 0 4px;padding:0 4px;font-size:11px;line-height:16px;font-weight:500;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
 @media (prefers-reduced-motion:reduce){.tm-sum-part .tm-chip-live{animation:none}}
+
+/* 0.10.6: reason line under the title of a failed executor, up to two lines in the error colour, cut with an ellipsis after two lines (the narrow 1280/768 card would otherwise hide the reset time). */
+.tm-wx-reason{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;min-width:0;overflow:hidden;text-overflow:ellipsis;overflow-wrap:anywhere;font-size:11px;line-height:15px;color:var(--destructive)}
+.tm-wx-reason-tip{white-space:pre-line;max-width:100%}
+.tm-wx-fullerr{color:var(--muted-foreground);font-size:11px}
+.tm-ex-err{color:var(--destructive)}

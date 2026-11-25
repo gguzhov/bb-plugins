@@ -5,6 +5,7 @@ import type { PluginFileOpenerProps } from "@get-bb/plugin-sdk/app";
 import { Icon } from "./components/ui/icon";
 import type { rpcContract } from "./server";
 import type { Material } from "./model";
+import { explainError } from "./agent-error";
 import { acceptanceLines, metaParts, resolveModel, stateLabel, summaryPreview, ticketCodes, type Executor, type PlanTicket } from "./agents";
 import "./style.css";
 import {MaterialIcon} from "./MaterialIcon";
@@ -34,7 +35,8 @@ const execTitle=(x:Executor,t:Dict)=>x.title==="Субагент"?t.subagent:x.t
 function PanelAgentRow({x,leaderModel,now,tickets,lang,t}:{x:Executor;leaderModel:string|null;now:number;tickets:PlanTicket[];lang:Lang;t:Dict}){
  const navigate=useBbNavigate();const [open,setOpen]=useState(false),[full,setFull]=useState(false);const mark=useRef<HTMLSpanElement>(null);
  const name=execTitle(x,t);const model=resolveModel(x,leaderModel,lang);const agent=displayAgentName(x.name,x.ordinal,lang);
- const ctx=[model?.label,...metaParts(x,now,lang)].filter(Boolean).join(" · ");
+ const reason=x.state==="error"?explainError(x.error,lang):null;
+ const ctx=[model?.label,...metaParts(x,now,lang),reason?.text].filter(Boolean).join(" · ");
  const title=(agent?agent+" — ":"")+name+" — "+stateLabel(x.state,lang)+(model?.hint?" · "+model.hint:"");
  /** The native row is a button without aria-expanded: set it on that button. */
  useEffect(()=>{mark.current?.closest("li")?.querySelector("button")?.setAttribute("aria-expanded",String(open));},[open]);
@@ -43,6 +45,7 @@ function PanelAgentRow({x,leaderModel,now,tickets,lang,t}:{x:Executor;leaderMode
  return <>
   <InfoListRow leading={<StateIcon state={x.state}/>} leadingLabel={stateLabel(x.state,lang)} name={<><span ref={mark} className="tm-mark"/>{agent&&<span className="tm-agent-name">{agent}</span>}{name}</>} title={title} context={ctx} onSelect={()=>setOpen(v=>!v)}/>
   {open&&<li className="tm-p-expand">
+   {reason&&<div className="tm-ex-sec"><span className="tm-ex-h">{t.errReason}</span><p className="tm-ex-text tm-ex-err" data-testid="tm-panel-reason">{reason.text}</p>{reason.full&&<p className="tm-ex-text tm-ex-none">{reason.full}</p>}</div>}
    <div className="tm-ex-sec"><span className="tm-ex-h">{t.whatWasDone}</span>{preview?<><p className="tm-ex-text">{full?x.summary:preview.head}</p>{preview.truncated&&<button type="button" className="tm-textact" aria-expanded={full} onClick={()=>setFull(v=>!v)}>{full?t.collapse:t.showFull}</button>}</>:<p className="tm-ex-text tm-ex-none">{t.noSummary}</p>}</div>
    {accept.length>0&&<div className="tm-ex-sec"><span className="tm-ex-h">{t.acceptance}</span>{accept.map(l=><p key={l} className="tm-ex-text">{l}</p>)}</div>}
    <div className="tm-ex-go">{x.threadId?<button type="button" className="tm-textact" onClick={()=>navigate.toThread(x.threadId!)}>{t.openThread}</button>:x.launchSeq!=null?<button type="button" className="tm-textact" onClick={()=>showInChat(x.launchSeq!)}>{t.showInChat}</button>:started?<span className="tm-ex-text">{t.startedAt(started)}</span>:null}</div>

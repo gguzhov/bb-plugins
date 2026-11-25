@@ -5,7 +5,8 @@ import { Icon } from "./components/ui/icon";
 import { usePortalScopeProps } from "./lib/portal-scope";
 import type { Material } from "./model";
 import type { GitChanges } from "./git-stats";
-import { actionText, elapsedMs, executorCounts, executorSummary, formatCalls, formatClock, formatDuration, formatTokens, resolveModel, stateLabel, ticketCodes, type Executor } from "./agents";
+import { actionText, cardRows, elapsedMs, executorCounts, executorSummary, formatCalls, formatClock, formatDuration, formatTokens, resolveModel, stateLabel, ticketCodes, type Executor } from "./agents";
+import { explainError } from "./agent-error";
 import { displayAgentName, type Dict, type Lang } from "./i18n";
 import { chipSummary, gitChipText, placePopover, readState, toggle, visibleRows, writeState, type SectionId, type WidgetState } from "./widget-state";
 import { isImageHref, MaterialIcon, useThumbnail } from "./MaterialIcon";
@@ -133,7 +134,8 @@ function ExecRow({ x, data, t, lang, now, expanded, onExpand, onThread, onChat, 
  const meta = running ? [elapsed !== null ? formatClock(elapsed) : null, action ?? (x.kind === "thread" ? t.kindThread : t.starting)] : [model?.label, elapsed !== null ? formatDuration(elapsed, lang) : null];
  const popId = "tm-pop-" + x.id.replace(/[^a-z0-9_-]/gi, "-");
  const go = x.threadId ? <button type="button" className="tm-textact" onClick={() => onThread(x.threadId!)}><Icon name="MessageSquare" aria-hidden />{t.openThread}</button> : x.launchSeq != null ? <button type="button" className="tm-textact" onClick={() => onChat(x.launchSeq!)}><Icon name="MessageSquareText" aria-hidden />{t.showInChat}</button> : null;
- const label = (name ? name + " — " : "") + title + " — " + stateLabel(x.state, lang) + (action ? ", " + action : "");
+ const reason = x.state === "error" ? explainError(x.error, lang) : null;
+ const label = (name ? name + " — " : "") + title + " — " + stateLabel(x.state, lang) + (action ? ", " + action : "") + (reason ? ", " + reason.text : "");
  return <li className="tm-wx" data-state={x.state} data-expanded={expanded ? "" : undefined}>
   <button ref={ref} type="button" className="tm-exec-row tm-wx-row" aria-label={label} aria-expanded={expanded} aria-describedby={hover.open ? popId : undefined}
    onClick={() => { hover.close(); onExpand(expanded ? null : x.id); }} {...hover.bind}>
@@ -141,6 +143,7 @@ function ExecRow({ x, data, t, lang, now, expanded, onExpand, onThread, onChat, 
    <span className="tm-wx-body">
     <span className="tm-wx-title">{name && <span className="tm-agent-name">{name}</span>}<span className="tm-wx-name">{title}</span></span>
     <span className="tm-wx-meta" data-live={running ? "" : undefined}>{meta.filter(Boolean).map((p, i) => <span key={i} className={i === 0 && running ? "tm-wx-clock" : i === 1 && running ? "tm-wx-action" : undefined}>{p}</span>)}</span>
+    {reason && <span className="tm-wx-reason" data-kind={reason.kind} data-testid="tm-exec-reason" title={reason.full || undefined}>{reason.text}</span>}
    </span>
    <span className="tm-wx-chev" aria-hidden="true"><Icon name={expanded ? "ChevronUp" : "ChevronDown"} /></span>
   </button>
@@ -154,6 +157,7 @@ function ExecRow({ x, data, t, lang, now, expanded, onExpand, onThread, onChat, 
     {x.tokens !== null && x.tokens > 0 && <><dt>{t.tokens}</dt><dd>{formatTokens(x.tokens, lang)}</dd></>}
    </dl>
    {action && <p className="tm-pop-muted">{action}</p>}
+   {reason && <p className="tm-pop-muted tm-wx-reason-tip" data-testid="tm-exec-reason-tip">{reason.text}{reason.full && reason.full !== reason.text ? "\n" + reason.full : ""}</p>}
   </HoverCard>
   {expanded && <div className="tm-wx-more">
    <dl className="tm-pop-dl">
@@ -163,6 +167,7 @@ function ExecRow({ x, data, t, lang, now, expanded, onExpand, onThread, onChat, 
     {x.tokens !== null && <><dt>{t.tokens}</dt><dd>{formatTokens(x.tokens, lang)}</dd></>}
    </dl>
    {action && <p className="tm-wx-summary">{action}</p>}
+   {reason?.full && <p className="tm-wx-summary tm-wx-fullerr">{reason.full}</p>}
    {!running && <p className="tm-wx-summary">{x.summary || t.noSummary}</p>}
    {go && <div className="tm-wx-actions">{go}</div>}
   </div>}
@@ -252,7 +257,7 @@ export function ChatWidget({ threadId, data, git, lang, t, openAll, openThread, 
  if (open === "git") {
   body = section(open, <GitDetails git={git} t={t} />);
  } else if (open === "agents") {
-  const { shown } = visibleRows(list, 3);
+  const { shown } = cardRows(list, 3);
   body = section(open, !data || !shown.length ? <p className="tm-empty" role="status">{data ? t.emptyAgents : error ? null : t.loading}</p> :
    <><p className="tm-wsum" data-testid="tm-exec-total"><SummaryText parts={executorSummary(executorCounts(list), lang, "long")} form="long" /></p><ul className="tm-wlist">{shown.map(x => <ExecRow key={x.id} x={x} data={data} t={t} lang={lang} now={now} expanded={expanded === x.id} onExpand={setExpanded} onThread={openThread} onChat={showInChat} registerClose={registerClose} />)}</ul></>);
  } else if (open === "result" || open === "source") {
@@ -266,7 +271,7 @@ export function ChatWidget({ threadId, data, git, lang, t, openAll, openThread, 
    <SectionChip id="git" icon="GitBranch" label={labels.git} registerClose={registerClose} gitReady={git?.kind === "ok"} chipRef={el => { chipEls.current.git = el; }} open={open === "git"} onToggle={onToggle} />
    <SectionChip id="agents" icon="Bot" label={labels.agents} registerClose={registerClose} chipRef={el => { chipEls.current.agents = el; }} running={!!ag?.running}
     text={!ag ? "…" : ag.running ? ag.running + "/" + ag.total : String(ag.total)}
-    tip={sumParts.map(p => p.text).join(" · ") || undefined} failed={!!data && execCounts.error > 0}
+    tip={sumParts.map(p => p.text + (p.state === "error" && execCounts.error === 1 ? " (" + explainError(list.find(x => x.state === "error")?.error, lang).text + ")" : "")).join(" · ") || undefined} failed={!!data && execCounts.error > 0}
     aria={!ag ? t.loading : sumParts.map(p => p.text).join(", ") || String(ag.total)}
     open={open === "agents"} onToggle={onToggle} />
    <SectionChip id="result" icon="FileText" label={labels.result} registerClose={registerClose} chipRef={el => { chipEls.current.result = el; }} text={chips ? String(chips.result.count) : "…"} aria={chips ? String(chips.result.count) : t.loading} open={open === "result"} onToggle={onToggle} />

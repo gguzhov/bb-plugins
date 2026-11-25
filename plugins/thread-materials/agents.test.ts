@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyEvents, deriveSubagents, executorCounts, executorSummary, emptyLog, formatDuration, formatTokens, formatCalls, metaParts, modelLabel, parseDetail, resolveModel, sortExecutors, ticketCode, threadState, type Executor, type ThreadEvent } from "./agents.ts";
+import { applyEvents, deriveSubagents, executorCounts, executorSummary, emptyLog, formatDuration, formatTokens, formatCalls, metaParts, modelLabel, parseDetail, resolveModel, sortExecutors, cardRows, ticketCode, threadState, type Executor, type ThreadEvent } from "./agents.ts";
 
 let seq = 0;
 const ev = (type: string, at: number, item: Record<string, unknown>): ThreadEvent => ({ seq: ++seq, type, createdAt: at, data: { item } });
@@ -96,6 +96,25 @@ const ex = (id: string, state: Executor["state"], startedAt: number, endedAt: nu
 test("running first (newest first), then finished by end time, newest first", () => {
  const sorted = sortExecutors([ex("doneOld", "done", 1, 10), ex("runOld", "running", 5, null), ex("err", "error", 2, 30), ex("runNew", "running", 50, null), ex("stop", "stopped", 3, 20)]);
  assert.deepEqual(sorted.map(x => x.id), ["runNew", "runOld", "err", "stop", "doneOld"]);
+});
+
+test("failed come right after running, newest first; names and ids stay as they were", () => {
+ const list = [ex("done", "done", 1, 90), ex("errOld", "error", 2, 10), ex("run", "running", 5, null), ex("errNew", "error", 3, 40)].map((x, i) => ({ ...x, ordinal: i + 1, name: "n" + (i + 1) }));
+ const sorted = sortExecutors(list);
+ assert.deepEqual(sorted.map(x => x.id), ["run", "errNew", "errOld", "done"]);
+ assert.deepEqual(sorted.map(x => x.name).sort(), ["n1", "n2", "n3", "n4"]);
+ assert.equal(sorted.find(x => x.id === "errNew")!.name, "n4");
+});
+
+test("card: one row is given to a failed executor when none fits in three", () => {
+ const sorted = sortExecutors([ex("r1", "running", 1, null), ex("r2", "running", 2, null), ex("r3", "running", 3, null), ex("r4", "running", 4, null), ex("bad", "error", 1, 10), ex("ok", "done", 1, 20)]);
+ const { shown, rest } = cardRows(sorted, 3);
+ assert.deepEqual(shown.map(x => x.id), ["r4", "r3", "bad"]);
+ assert.equal(rest, 3);
+ // a failed row already among the first three: nothing is displaced
+ assert.deepEqual(cardRows(sortExecutors([ex("r1", "running", 1, null), ex("bad", "error", 1, 10), ex("ok", "done", 1, 20), ex("ok2", "done", 1, 5)]), 3).shown.map(x => x.id), ["r1", "bad", "ok"]);
+ // no failed: plain first three
+ assert.deepEqual(cardRows(sortExecutors([ex("a", "running", 1, null), ex("b", "done", 1, 5), ex("c", "done", 1, 4), ex("d", "done", 1, 3)]), 3).shown.map(x => x.id), ["a", "b", "c"]);
 });
 
 test("time, calls and tokens always carry a unit", () => {

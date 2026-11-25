@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-thread-materials",
-  "version": "0.10.5",
+  "version": "0.10.6",
   "type": "module",
   "engines": {
     "bb": ">=0.49",
@@ -50,7 +50,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test agent-names.test.ts model.test.ts disposition.test.ts preview-target.test.ts agents.test.ts expand.test.ts git-stats.test.ts widget-state.test.ts i18n.test.ts event-page.test.ts",
+    "test": "node --test agent-names.test.ts model.test.ts disposition.test.ts preview-target.test.ts agents.test.ts agent-error.test.ts expand.test.ts git-stats.test.ts widget-state.test.ts i18n.test.ts event-page.test.ts",
     "build": "bb plugin build"
   },
   "files": [
@@ -77,6 +77,8 @@
     "assets",
     "card-chrome.ts",
     "agents.ts",
+    "agent-error.ts",
+    "agent-error.test.ts",
     "agents.test.ts",
     "git-stats.ts",
     "git-stats.test.ts",
