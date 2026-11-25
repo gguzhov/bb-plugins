@@ -54,6 +54,10 @@
     {
       "name": "genidev-project-icons",
       "source": "./plugins/genidev-project-icons"
+    },
+    {
+      "name": "genidev-touchbar",
+      "source": "./plugins/genidev-touchbar"
     }
   ]
 }
