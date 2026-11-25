@@ -349,6 +349,9 @@ test("the agent prompt is the same in the CLI, the RPC and the skill, names no a
   assert.equal(rpc.text, AGENT_PROMPT);
   const skill = readFileSync(new URL("../skills/ssh-fleet/SKILL.md", import.meta.url), "utf8");
   assert.ok(skill.includes(AGENT_PROMPT), "skill carries the same text");
+  assert.ok(AGENT_PROMPT.includes("Use existing SSH keys on this computer"));
+  assert.ok(AGENT_PROMPT.includes("Never ask for passwords in chat"));
+  assert.ok(!AGENT_PROMPT.includes("--password-stdin"));
   assert.ok(!/chatgpt|claude|grok|composer|cursor|codex|copilot|gemini/i.test(AGENT_PROMPT));
   assert.ok(AGENT_PROMPT.includes("Never print, echo, log, store or write to a file any password"));
   assert.ok(AGENT_PROMPT.includes("never print or read out the contents of a private key"));

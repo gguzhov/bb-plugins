@@ -37,11 +37,9 @@ Rules for the whole task:
 
 Steps:
 1. Find my servers. Read ~/.ssh/config (Host, HostName, Port, User, IdentityFile) and ask me which of them to add and whether there are others. Run "bb ssh-fleet list" so you skip servers that are already registered, and "bb ssh-fleet group list" to see the groups.
-2. For each server, check that key login as root works:
+2. After I confirm which servers to add, for each server check that key login as root works:
    ssh -o BatchMode=yes -o IdentitiesOnly=yes -i <private key path> -p <port> root@<host> true
-3. If it does not work and I give you the root password, set up a dedicated key with the plugin itself, so the password goes only from stdin to ssh and is never stored:
-   bb ssh-fleet add --name <name> --host <host> [--port <port>] --password-stdin [--group <group>] [--ssh-config]
-   Feed the password on stdin from where I keep it (for example a password manager command piped into bb); never put it in a command line argument, a file or your messages. If you cannot pass it that way, ask me to add the server myself with the root password option in the add-server form of the Servers page. The first run prints the server's host key fingerprint and stops: show it to me, and after I confirm, run the same command again with --host-key <fingerprint>. The plugin creates the key in ~/.ssh, installs it for root and checks that it logs in.
+3. Use existing SSH keys on this computer: inspect file names and permissions in ~/.ssh and IdentityFile entries in ~/.ssh/config. Never read private key contents. Match existing keys to the selected hosts; do not guess hosts from key names. Never ask for passwords in chat. If key access fails, report the problem and wait for the owner to arrange access outside chat.
 4. Register each server whose key login works:
    bb ssh-fleet add --name <name> --host <host> --key <absolute path to the private key> [--port <port>] [--group <group>] [--hosting <provider>] [--cost <rubles per month>] [--description <what runs there>]
    Create a missing group first with: bb ssh-fleet group add --label <group name>

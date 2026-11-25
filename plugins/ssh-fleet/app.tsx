@@ -3,6 +3,8 @@ import type { FormEvent, ReactNode, RefObject } from "react";
 import {
   definePluginApp,
   useBbNavigate,
+  useBbContext,
+  useSdk,
   useRealtime,
   useRealtimeConnectionState,
   useRpc,
@@ -217,7 +219,7 @@ function useFleet() {
 function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-      <div className="@container mx-auto box-border w-full max-w-4xl space-y-5 px-4 py-5 md:px-6">
+      <div className="@container mx-auto box-border w-full space-y-5 px-4 py-5 md:px-6">
         {children}
       </div>
     </div>
@@ -753,15 +755,13 @@ function CostCard({ label, value }: { label: string; value: string }) {
 function CostSummary({ servers }: { servers: Server[] }) {
   const totals = costTotals(servers);
   return (
-    <Card className="px-4 py-3">
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 @lg:grid-cols-4">
+    <Card className="px-2 py-3 sm:px-4">
+      <dl data-fleet-summary className="grid grid-cols-3 divide-x divide-border [&>div]:px-2 sm:[&>div]:px-4 [&_dd]:break-words [&_dd]:text-sm sm:[&_dd]:text-base">
         <Stat label="Серверов" value={String(totals.count)} />
         <Stat label="В месяц" value={`${rubles(totals.monthly)} ₽`} />
         <Stat label="В час" value={`${hourly(totals.monthly)} ₽`} />
-        {totals.unpriced === 0 ? null : (
-          <Stat label="Без цены" value={serversWord(totals.unpriced)} />
-        )}
       </dl>
+      {totals.unpriced === 0 ? null : <p className="mt-2 px-2 text-xs text-muted-foreground">Без цены: {serversWord(totals.unpriced)}</p>}
     </Card>
   );
 }
@@ -927,33 +927,32 @@ function ImportPanel({
   return (
     <Card className="space-y-4 p-4 sm:p-5">
       <div className="space-y-1">
-        <h2 className="text-base font-semibold">Импорт из ~/.ssh/config</h2>
-        <p className="text-xs text-muted-foreground">Отметьте Host, которые нужно добавить. Пользователь станет root.</p>
+        <h2 className="text-base font-semibold">Импорт серверов</h2>
+        <p className="text-xs text-muted-foreground">Выберите серверы для добавления.</p>
       </div>
       {candidates.length === 0 ? (
-        <p className="text-sm text-muted-foreground">В ~/.ssh/config нет Host с IdentityFile.</p>
+        <p className="text-sm text-muted-foreground">Серверы для импорта не найдены.</p>
       ) : null}
       <ul className="space-y-3">
         {candidates.map((candidate) => {
           const disabled = candidate.already || candidate.error !== null;
           return (
-            <li key={candidate.alias}>
+            <li key={candidate.alias} className={candidate.already ? "opacity-50" : undefined}>
               <label className="flex min-h-11 items-start gap-3 text-sm">
-                <Checkbox
+                {candidate.already ? null : <Checkbox
                   className="mt-0.5"
                   checked={picked.includes(candidate.alias)}
                   disabled={disabled}
                   onCheckedChange={(checked) => onPick(candidate.alias, checked === true)}
                   aria-label={candidate.alias}
-                />
+                />}
                 <span className="min-w-0">
                   <span className="font-medium break-words">{candidate.alias}</span>
                   <span className="block break-words text-muted-foreground">
                     {candidate.host === "" ? "хост не разобран" : `${candidate.host}:${candidate.port}`}
-                    {candidate.configUser === "" ? "" : `, в конфиге ${candidate.configUser}`}
-                    . {candidate.notice}
+
                   </span>
-                  {candidate.already ? <span className="block text-muted-foreground">Уже в списке.</span> : null}
+                  {candidate.already ? <span className="block text-muted-foreground">Импортировано</span> : null}
                   {candidate.error === null ? null : <span className="block text-destructive">{candidate.error}</span>}
                 </span>
               </label>
@@ -1018,9 +1017,36 @@ function AgentDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (ope
   );
 }
 
+// The global fleet route has no project; remember the last selected project in this tab.
+let lastProjectId: string | null = null;
+function useFleetProject() {
+  const { projectId } = useBbContext();
+  if (projectId) {
+    lastProjectId = projectId;
+    try { sessionStorage.setItem("ssh-fleet:project", projectId); } catch {}
+  }
+  if (projectId || lastProjectId) return projectId || lastProjectId;
+  try { return sessionStorage.getItem("ssh-fleet:project"); } catch { return null; }
+}
+
 function FleetList() {
   const navigate = useBbNavigate();
   const fleet = useFleet();
+  const sdk = useSdk();
+  const projectId = useFleetProject();
+  const [startingAgent, setStartingAgent] = useState(false);
+  const agentLock = useRef(false);
+  const startAgent = async () => {
+    if (agentLock.current) return;
+    agentLock.current = true;
+    setStartingAgent(true);
+    try {
+      if (!projectId) throw new Error("Откройте проект в bb, затем настройте серверы через агента.");
+      const thread = await sdk.threads.spawn({ projectId, environment: { type: "project-default" }, title: "Настройка серверов", prompt: AGENT_PROMPT });
+      navigate.toThread(thread.id);
+    } catch (cause) { fleet.report(cause); }
+    finally { agentLock.current = false; setStartingAgent(false); }
+  };
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
   const [pending, setPending] = useState(false);
@@ -1174,10 +1200,11 @@ function FleetList() {
             <Icon name="Download" />
             Импорт
           </Button>
-          <Button type="button" size="sm" variant="outline" className={TOUCH} onClick={() => setAgentOpen(true)}>
+          <Button type="button" size="sm" variant="outline" className={TOUCH} disabled={startingAgent} onClick={() => void startAgent()}>
             <Icon name="AiBrain01" />
-            Настроить через агента
+            {startingAgent ? "Создаём тред…" : "Настроить через агента"}
           </Button>
+          <Button type="button" size="sm" variant="ghost" className={TOUCH} onClick={() => setAgentOpen(true)}>Текст для агента</Button>
           <Button
             type="button"
             size="sm"
@@ -1237,7 +1264,7 @@ function FleetList() {
       ) : fleet.servers.length === 0 ? (
         <Card className="flex flex-col items-center gap-3 border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
           <p>Серверов нет. Добавьте сервер формой, импортом из ~/.ssh/config или поручите это агенту.</p>
-          <Button type="button" size="sm" variant="outline" className={TOUCH} onClick={() => setAgentOpen(true)}>
+          <Button type="button" size="sm" variant="outline" className={TOUCH} disabled={startingAgent} onClick={() => void startAgent()}>
             <Icon name="AiBrain01" />
             Настроить через агента
           </Button>
@@ -1547,6 +1574,7 @@ function Fact({ label, value, wide }: { label: string; value: string; wide?: "tw
 }
 
 function useDownBadge() {
+  useFleetProject();
   const rpc = useRpc<typeof rpcContract>();
   const [count, setCount] = useState(0);
   const load = useCallback(() => {
