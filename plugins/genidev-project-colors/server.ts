@@ -1,6 +1,6 @@
 import { defineRpcContract, type BbPluginApi } from '@get-bb/plugin-sdk';
 import { z } from 'zod';
-import {defaultColor} from './palette';
+import {defaultColor,FULL_WIDTH_SETTING} from './palette';
 const color=z.string().regex(/^#[\da-f]{6}$/i).nullable();
 const selection=z.object({projectId:z.string().min(1).max(160),color});
 export const rpcContract=defineRpcContract({
@@ -8,6 +8,8 @@ export const rpcContract=defineRpcContract({
  set:{input:selection,output:z.object({ok:z.boolean()})}
 });
 export default function plugin(bb:BbPluginApi){
+ // Read by the frontend through useSettings(); shown in the plugin's settings.
+ bb.settings.define({[FULL_WIDTH_SETTING]:{type:'boolean',label:'Full-width underline',description:'Underline the whole project row across the sidebar instead of only the project name.',default:false}});
  const state=async()=>{
   const projects=await bb.sdk.projects.list();
   return {recent:(await bb.storage.kv.get<string[]>('recent-colors'))??[],projects:await Promise.all(projects.map(async p=>{
