@@ -476,3 +476,12 @@ export function ticketsFromPlans(plans: unknown): PlanTicket[] {
  }
  return out.slice(0, 300);
 }
+
+/** Deletion policy is shared by the UI and the server. */
+export function executorDeleteAction(x: Pick<Executor, "kind" | "threadId" | "state">): "delete-thread" | "hide" | "blocked" {
+ if (x.kind === "thread" && x.threadId?.startsWith("thr_")) return "delete-thread";
+ return x.state === "running" ? "blocked" : "hide";
+}
+export function visibleExecutors<T extends { id: string }>(list: readonly T[], hidden: readonly string[]): T[] {
+ const ids = new Set(hidden); return list.filter(x => !ids.has(x.id));
+}

@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-thread-materials",
-  "version": "0.10.6",
+  "version": "0.10.7",
   "type": "module",
   "engines": {
     "bb": ">=0.49",

@@ -221,3 +221,17 @@ test("executorCounts and executorSummary: sets of states, both languages, both f
  assert.deepEqual(executorCounts([]), { running: 0, done: 0, error: 0, stopped: 0, total: 0 });
  assert.deepEqual(executorSummary(executorCounts([]), "ru"), []);
 });
+
+import { executorDeleteAction, visibleExecutors, executorCounts as countVisible } from "./agents.ts";
+test("deletion policy distinguishes live subagents and child threads", () => {
+ assert.equal(executorDeleteAction({kind:"thread",threadId:"thr_test",state:"running"}),"delete-thread");
+ assert.equal(executorDeleteAction({kind:"subagent",threadId:null,state:"running"}),"blocked");
+ for(const state of ["done","error","stopped"] as const) assert.equal(executorDeleteAction({kind:"subagent",threadId:null,state}),"hide");
+});
+test("persisted hidden identities filter all counter inputs without mutating rows", () => {
+ const rows=[{id:"a",state:"done" as const},{id:"b",state:"running" as const},{id:"c",state:"error" as const}];
+ const hidden=JSON.parse(JSON.stringify(["a","c"]));
+ assert.deepEqual(countVisible(visibleExecutors(rows,hidden)),{total:1,running:1,done:0,error:0,stopped:0});
+ assert.equal(rows.length,3);
+ assert.deepEqual(visibleExecutors(rows,hidden),visibleExecutors(rows,hidden));
+});

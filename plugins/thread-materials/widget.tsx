@@ -5,7 +5,7 @@ import { Icon } from "./components/ui/icon";
 import { usePortalScopeProps } from "./lib/portal-scope";
 import type { Material } from "./model";
 import type { GitChanges } from "./git-stats";
-import { actionText, cardRows, elapsedMs, executorCounts, executorSummary, formatCalls, formatClock, formatDuration, formatTokens, resolveModel, stateLabel, ticketCodes, type Executor } from "./agents";
+import { executorDeleteAction, actionText, cardRows, elapsedMs, executorCounts, executorSummary, formatCalls, formatClock, formatDuration, formatTokens, resolveModel, stateLabel, ticketCodes, type Executor } from "./agents";
 import { explainError } from "./agent-error";
 import { displayAgentName, type Dict, type Lang } from "./i18n";
 import { chipSummary, gitChipText, placePopover, readState, toggle, visibleRows, writeState, type SectionId, type WidgetState } from "./widget-state";
@@ -124,7 +124,10 @@ function StateIcon({ state }: { state: Executor["state"] }) {
  return <span className={"tm-exec-icon tm-exec-" + state} aria-hidden="true">{state === "running" ? <span className="tm-spinner" /> : state === "done" ? <Icon name="Check" /> : state === "error" ? <Icon name="CircleAlert" /> : <Icon name="CircleStop" />}</span>;
 }
 
-function ExecRow({ x, data, t, lang, now, expanded, onExpand, onThread, onChat, registerClose }: { x: Executor; data: WidgetData; t: Dict; lang: Lang; now: number; expanded: boolean; onExpand: (id: string | null) => void; onThread: (id: string) => void; onChat: (seq: number) => void; registerClose: (fn: () => void) => () => void }) {
+function ExecRow({ x, data, t, lang, now, expanded, onExpand, onThread, onChat, onDeleteExecutor, registerClose }: { x: Executor; onDeleteExecutor: (id: string) => Promise<void>; data: WidgetData; t: Dict; lang: Lang; now: number; expanded: boolean; onExpand: (id: string | null) => void; onThread: (id: string) => void; onChat: (seq: number) => void; registerClose: (fn: () => void) => () => void }) {
+ const [confirmDelete,setConfirmDelete]=useState(false),[deleting,setDeleting]=useState(false),[deleteError,setDeleteError]=useState("");
+ const blocked=executorDeleteAction(x)==="blocked";
+ const requestDelete=()=>{hover.close();setDeleteError("");setConfirmDelete(true);};
  const ref = useRef<HTMLButtonElement>(null);
  const hover = useHover(400);
  useEffect(() => registerClose(hover.close), [registerClose, hover.close]);
@@ -136,7 +139,7 @@ function ExecRow({ x, data, t, lang, now, expanded, onExpand, onThread, onChat, 
  const go = x.threadId ? <button type="button" className="tm-textact" onClick={() => onThread(x.threadId!)}><Icon name="MessageSquare" aria-hidden />{t.openThread}</button> : x.launchSeq != null ? <button type="button" className="tm-textact" onClick={() => onChat(x.launchSeq!)}><Icon name="MessageSquareText" aria-hidden />{t.showInChat}</button> : null;
  const reason = x.state === "error" ? explainError(x.error, lang) : null;
  const label = (name ? name + " — " : "") + title + " — " + stateLabel(x.state, lang) + (action ? ", " + action : "") + (reason ? ", " + reason.text : "");
- return <li className="tm-wx" data-state={x.state} data-expanded={expanded ? "" : undefined}>
+ return <li className="tm-wx" onKeyDown={e=>{if(e.key==="Escape"&&confirmDelete&&!deleting){e.stopPropagation();setConfirmDelete(false);}}} data-state={x.state} data-expanded={expanded ? "" : undefined}>
   <button ref={ref} type="button" className="tm-exec-row tm-wx-row" aria-label={label} aria-expanded={expanded} aria-describedby={hover.open ? popId : undefined}
    onClick={() => { hover.close(); onExpand(expanded ? null : x.id); }} {...hover.bind}>
    <StateIcon state={x.state} />
@@ -147,6 +150,13 @@ function ExecRow({ x, data, t, lang, now, expanded, onExpand, onThread, onChat, 
    </span>
    <span className="tm-wx-chev" aria-hidden="true"><Icon name={expanded ? "ChevronUp" : "ChevronDown"} /></span>
   </button>
+  <button type="button" className="tm-exec-delete tm-danger" aria-label={t.deleteExecutor+": "+title} title={blocked?t.executorWorking:t.deleteExecutor} disabled={blocked||deleting} onClick={requestDelete}><Icon name="X" aria-hidden /></button>
+  {confirmDelete&&<div className="tm-exec-confirm" role="group" aria-label={t.confirmExecutorDelete}>
+   <span>{running&&x.threadId?t.confirmExecutorStop:t.confirmExecutorDelete}</span>
+   <button autoFocus className="tm-textact tm-danger" disabled={deleting||blocked} onClick={async()=>{setDeleting(true);setDeleteError("");try{await onDeleteExecutor(x.id);}catch{setDeleteError(t.executorDeleteError);}finally{setDeleting(false);}}}>{deleting?t.loading:t.executorYes}</button>
+   <button className="tm-textact" disabled={deleting} onClick={()=>setConfirmDelete(false)}>{t.executorCancel}</button>
+  </div>}
+  {deleteError&&<p className="tm-exec-delete-error" role="alert">{deleteError}</p>}
   <HoverCard anchor={ref} open={hover.open} id={popId}>
    <p className="tm-pop-title">{name && <span className="tm-agent-name">{name}</span>}<span>{title}</span></p>
    <dl className="tm-pop-dl">
@@ -169,7 +179,7 @@ function ExecRow({ x, data, t, lang, now, expanded, onExpand, onThread, onChat, 
    {action && <p className="tm-wx-summary">{action}</p>}
    {reason?.full && <p className="tm-wx-summary tm-wx-fullerr">{reason.full}</p>}
    {!running && <p className="tm-wx-summary">{x.summary || t.noSummary}</p>}
-   {go && <div className="tm-wx-actions">{go}</div>}
+   <div className="tm-wx-actions">{go}<button type="button" className="tm-textact tm-danger" disabled={blocked||deleting} title={blocked?t.executorWorking:undefined} onClick={requestDelete}>{t.deleteExecutor}</button></div>
   </div>}
  </li>;
 }
@@ -196,8 +206,8 @@ function MaterialRow({ item, threadId, t, removable, onOpen, onCopy, onRemove, c
 
 // ---------- the widget ----------
 
-export function ChatWidget({ threadId, data, git, lang, t, openAll, openThread, showInChat, openMaterial, onRemove, renderLink, visible, error }: {
- threadId: string; data: WidgetData | null; git: GitState; lang: Lang; t: Dict; visible: boolean; error: ReactNode;
+export function ChatWidget({ threadId, data, git, lang, t, openAll, openThread, showInChat, openMaterial, onRemove, onDeleteExecutor, renderLink, visible, error }: {
+ onDeleteExecutor: (id: string) => Promise<void>; threadId: string; data: WidgetData | null; git: GitState; lang: Lang; t: Dict; visible: boolean; error: ReactNode;
  openAll: (section: SectionId) => void; openThread: (id: string) => void; showInChat: (seq: number) => void;
  openMaterial: (item: Material) => void; onRemove: (item: Material) => void; renderLink: (item: Material) => ReactNode;
 }) {
@@ -223,6 +233,8 @@ export function ChatWidget({ threadId, data, git, lang, t, openAll, openThread, 
    if (e.key !== "Escape" || !root.current) return;
    const active = document.activeElement;
    if (!active || !root.current.contains(active) || active.closest("dialog")) return;
+   const confirmation=root.current.querySelector('.tm-exec-confirm');
+   if(confirmation){(confirmation.querySelector('button:last-child') as HTMLButtonElement|null)?.click();e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();return;}
    const popover = document.querySelector('.tm-pop');
    if (popover) { closers.current.forEach(fn => fn()); }
    else if (openRef.current) { const id = openRef.current; const next = { open: null }; setState(next); writeState(storage(), threadId, next); setExpanded(null); requestAnimationFrame(() => chipEls.current[id]?.focus()); }
@@ -259,7 +271,7 @@ export function ChatWidget({ threadId, data, git, lang, t, openAll, openThread, 
  } else if (open === "agents") {
   const { shown } = cardRows(list, 3);
   body = section(open, !data || !shown.length ? <p className="tm-empty" role="status">{data ? t.emptyAgents : error ? null : t.loading}</p> :
-   <><p className="tm-wsum" data-testid="tm-exec-total"><SummaryText parts={executorSummary(executorCounts(list), lang, "long")} form="long" /></p><ul className="tm-wlist">{shown.map(x => <ExecRow key={x.id} x={x} data={data} t={t} lang={lang} now={now} expanded={expanded === x.id} onExpand={setExpanded} onThread={openThread} onChat={showInChat} registerClose={registerClose} />)}</ul></>);
+   <><p className="tm-wsum" data-testid="tm-exec-total"><SummaryText parts={executorSummary(executorCounts(list), lang, "long")} form="long" /></p><ul className="tm-wlist">{shown.map(x => <ExecRow key={x.id} x={x} data={data} t={t} lang={lang} now={now} expanded={expanded === x.id} onExpand={setExpanded} onThread={openThread} onChat={showInChat} onDeleteExecutor={onDeleteExecutor} registerClose={registerClose} />)}</ul></>);
  } else if (open === "result" || open === "source") {
   const entries = data?.materials.filter(x => x.group === open) ?? [];
   const { shown } = visibleRows(entries);

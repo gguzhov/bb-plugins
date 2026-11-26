@@ -73,3 +73,5 @@ Compact widget: three entries per section; Show all opens the full right panel. 
 The X control opens Archive / Delete from list / Cancel. These actions never delete disk files. Archived records can be restored via the Archive link. Deleted records remain suppressed during history refresh. Persistent per-thread indexing retains older attachments (up to 1000 items with visible limits).
 
 Parent is hidden only in the compact card, remains in Info. The card uses rounded corners and a subtle theme-aware neutral gradient. Image previews validate thread ownership and PNG/JPEG/WebP signatures, up to 2 MiB after SDK read; remote URLs are not fetched.
+
+Исполнителя можно удалить с подтверждением: дочерний тред останавливается и удаляется, завершённый субагент навсегда скрывается из виджета.

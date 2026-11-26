@@ -151,10 +151,11 @@ function Materials({threadId,environment,widget=false,archiveOnly=false}:Experim
  const [removing,setRemoving]=useState<Material|null>(null),[actionBusy,setActionBusy]=useState(false),[actionError,setActionError]=useState("");
 
  const openArchive=()=>{panel.openTab({tab:{id:"archive",context:{kind:"thread"},availability:"action"},title:t.archive});};
+ const deletedExecutors=useRef(new Set<string>());
  const generation=useRef(0),inflight=useRef(false),stale=useRef(false);
  const load=useCallback(async()=>{
   if(inflight.current)return; inflight.current=true; const g=generation.current; setBusy(true);
-  try{const next=await rpc.call("snapshot",{threadId,pages});snapMemo.set(threadId+":"+pages,{at:Date.now(),data:next});if(g===generation.current){setData(prev=>sameJson(prev,next)?prev:next);setError("");}}
+  try{const next=await rpc.call("snapshot",{threadId,pages});snapMemo.set(threadId+":"+pages,{at:Date.now(),data:next});if(g===generation.current){setData(prev=>{const filtered={...next,executors:next.executors.filter(x=>!deletedExecutors.current.has(x.id))};return sameJson(prev,filtered)?prev:filtered;});setError("");}}
   catch(e){if(g===generation.current)setError(e instanceof Error?e.message:String(e));}
   finally{if(g===generation.current){inflight.current=false;setBusy(false);}}
  },[rpc,threadId,pages]);
@@ -208,6 +209,7 @@ function Materials({threadId,environment,widget=false,archiveOnly=false}:Experim
  </>}
  {widget&&<ChatWidget threadId={threadId} data={data} git={git} lang={lang} t={t} visible={visibleNow} error={errorBox}
   openAll={section=>{panel.openTab({tab,target:section});}} openThread={id=>navigate.toThread(id)} showInChat={showInChat}
+  onDeleteExecutor={async id=>{await rpc.call("deleteExecutor",{threadId,id});deletedExecutors.current.add(id);for(const key of snapMemo.keys())if(key.startsWith(threadId+":"))snapMemo.delete(key);setData(prev=>prev?{...prev,executors:prev.executors.filter(x=>x.id!==id)}:prev);await load();}}
   openMaterial={openMaterial} onRemove={item=>{setActionError("");setRemoving(item);}} renderLink={item=><MaterialLink item={item} threadId={threadId} hostId={data?.hostId??null} t={t}/>}/>}
  {archiveOnly&&<section className="tm-archive"><h2>{t.archive}</h2>{archivedRows(data?.archived??[])}</section>}
 

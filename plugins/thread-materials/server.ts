@@ -3,7 +3,7 @@ import { z } from "zod";
 import { extract, material, materialKey, mergeMaterials, type Material } from "./model";
 import { changeDisposition, projectDispositions, type Dispositions } from "./disposition";
 import { SERVER_TEXT, resolveLang, type Lang } from "./i18n";
-import { AGENT_EVENT_TYPES, applyActions, applyEvents, deriveSubagents, emptyLog, ticketsFromPlans, sortExecutors, threadState, resolveModel, type Action, type AgentLog, type Executor, type PlanTicket, type ThreadEvent } from "./agents";
+import { executorDeleteAction, visibleExecutors, AGENT_EVENT_TYPES, applyActions, applyEvents, deriveSubagents, emptyLog, ticketsFromPlans, sortExecutors, threadState, resolveModel, type Action, type AgentLog, type Executor, type PlanTicket, type ThreadEvent } from "./agents";
 import { hostContract, gitChangesSchema } from "./host-contract";
 import { agentName, ordinals } from "./agent-names";
 import { readEventPage } from "./event-page";
@@ -15,6 +15,7 @@ const gitOutput=z.union([gitChangesSchema,z.object({kind:z.literal("no-env")})])
 const addSchema=z.object({threadId:threadIdSchema,title:z.string().trim().min(1).max(240),href:z.string().max(4096),group:z.enum(["result","source"])});
 export const rpcContract=defineRpcContract({
  snapshot:{input:z.object({threadId:threadIdSchema,pages:z.number().int().min(1).max(20).default(1)}),output:z.object({materials:z.array(itemSchema),archived:z.array(itemSchema),executors:z.array(executorSchema),leaderModel:z.string().nullable(),executorsPartial:z.boolean(),tickets:z.array(ticketSchema),hasMore:z.boolean(),childrenTruncated:z.boolean(),hostId:z.string().nullable(),notice:z.string()})},
+ deleteExecutor:{input:z.object({threadId:threadIdSchema,id:z.string().min(1).max(500)}),output:z.boolean()},
  thumbnail:{input:z.object({threadId:threadIdSchema,item:itemSchema}),output:z.object({dataUrl:z.string().nullable()})},
  disposition:{input:z.object({threadId:threadIdSchema,item:itemSchema,action:z.enum(["archive","delete","restore"])}),output:z.boolean()},
  git:{input:z.object({threadId:threadIdSchema}),output:gitOutput},
@@ -36,6 +37,7 @@ export default function plugin(bb:BbPluginApi){
  const actionsByThread=new Map<string,Record<string,Action>>();
  const read=async(id:string)=>(await bb.storage.kv.get<Material[]>("items:"+id))||[];
  const readDispositions=async(id:string)=>(await bb.storage.kv.get<Dispositions>("dispositions:"+id))||{};
+ const readHidden=async(id:string)=>(await bb.storage.kv.get<string[]>("hidden-executors:"+id))||[];
  const readIndex=async(id:string)=>await bb.storage.kv.get<MaterialIndex>("material-index:"+id);
  const hydrating=new Map<string,Promise<{rows:unknown[];hasMore:boolean;active?:unknown[]}>>();
  const modelCache=new Map<string,{expires:number;model: {model?:string;reasoningEffort?:string}}>();
@@ -205,7 +207,7 @@ export default function plugin(bb:BbPluginApi){
    const manualKeys=new Set(manual.map(materialKey));
    const merged=mergeMaterials([...index.materials.filter(x=>!manualKeys.has(materialKey(x))).slice().reverse(),...manual]);
    const projected=projectDispositions(merged,dispositions);
-   return {hostId:env?.hostId||null,materials:projected.materials.slice(0,1000),archived:projected.archived,executors:sortExecutors(nameExecutors([...executors.values()])),leaderModel:leader.model??null,executorsPartial:!!agentLog?.partial,tickets:withAgents?await planTickets(threadId):[],hasMore:index.partial,childrenTruncated:false,notice:await (async()=>{const t=await text();return [index.limited||merged.length>1000?t.indexLimited:"",index.partial?t.partialHistory:""].filter(Boolean).join(" ");})()};
+   return {hostId:env?.hostId||null,materials:projected.materials.slice(0,1000),archived:projected.archived,executors:sortExecutors(visibleExecutors(nameExecutors([...executors.values()]),await readHidden(threadId))),leaderModel:leader.model??null,executorsPartial:!!agentLog?.partial,tickets:withAgents?await planTickets(threadId):[],hasMore:index.partial,childrenTruncated:false,notice:await (async()=>{const t=await text();return [index.limited||merged.length>1000?t.indexLimited:"",index.partial?t.partialHistory:""].filter(Boolean).join(" ");})()};
  }
  /** Snapshot answers by thread: rebuilt only when the thread got a new event (its last seq moved),
      after a write here, or on a thread status change; a moving thread is rebuilt at most every SNAP_MIN_MS.
@@ -228,6 +230,27 @@ export default function plugin(bb:BbPluginApi){
  }
  bb.rpc.register(rpcContract,{
   snapshot:input=>cachedSnapshot(input),add,
+  deleteExecutor:async({threadId,id})=>{
+   const current=await snapshot({threadId,pages:1});
+   const executor=current.executors.find(x=>x.id===id);
+   if(!executor)throw new Error("Executor no longer available");
+   const action=executorDeleteAction(executor);
+   if(action==="blocked")throw new Error("Executor is still running");
+   if(action==="delete-thread"){
+    // Authorize against live parentage, never a client-provided target or stale log.
+    const child=await bb.sdk.threads.get({threadId:executor.threadId!});
+    if(child.parentThreadId!==threadId||child.id===threadId)throw new Error("Not a child of this thread");
+    await bb.sdk.threads.stop({threadId:child.id});
+    const stopped=await bb.sdk.threads.get({threadId:child.id});
+    if(threadState(stopped.runtime.displayStatus)==="running")throw new Error("Thread has not stopped yet");
+    await bb.sdk.threads.delete({threadId:child.id,childThreadsConfirmed:true});
+   }
+   await write(async()=>{
+    await bb.storage.kv.set("hidden-executors:"+threadId,[...new Set([...(await readHidden(threadId)),id])]);
+    dropSnap(threadId);
+   });
+   bb.realtime.publish("changed",{threadId});return true;
+  },
   git:({threadId})=>gitFor(threadId),
   agentNames:({threadId})=>agentNames(threadId),
   thumbnail:async({threadId,item})=>{
@@ -279,5 +302,5 @@ export default function plugin(bb:BbPluginApi){
  bb.events.on("thread.idle",({thread})=>touch(thread));
  bb.events.on("thread.active",({thread})=>touch(thread));
  bb.events.on("thread.failed",({thread})=>touch(thread));
- bb.events.on("thread.deleted",async({thread})=>{await write(async()=>{await bb.storage.kv.delete("items:"+thread.id);await bb.storage.kv.delete("dispositions:"+thread.id);await bb.storage.kv.delete("material-index:"+thread.id);await bb.storage.kv.delete("agent-log:"+thread.id);hydrating.delete(thread.id);});});
+ bb.events.on("thread.deleted",async({thread})=>{await write(async()=>{await bb.storage.kv.delete("items:"+thread.id);await bb.storage.kv.delete("dispositions:"+thread.id);await bb.storage.kv.delete("material-index:"+thread.id);await bb.storage.kv.delete("agent-log:"+thread.id);await bb.storage.kv.delete("hidden-executors:"+thread.id);hydrating.delete(thread.id);});});
 }

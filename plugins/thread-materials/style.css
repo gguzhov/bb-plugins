@@ -200,3 +200,19 @@ p.tm-pop-muted{margin-top:4px}
 .tm-wx-reason-tip{white-space:pre-line;max-width:100%}
 .tm-wx-fullerr{color:var(--muted-foreground);font-size:11px}
 .tm-ex-err{color:var(--destructive)}
+
+/* Executor deletion stays separate from the expandable row button. */
+.tm-wx{position:relative}
+.tm-panel .tm-exec-row.tm-wx-row{padding-right:48px}
+.tm-exec-delete{position:absolute;right:0;top:0;width:44px;height:44px;display:grid;place-items:center;background:transparent;border:0;opacity:0;cursor:pointer}
+.tm-exec-delete svg{width:14px;height:14px}
+.tm-wx:hover .tm-exec-delete,.tm-wx:focus-within .tm-exec-delete{opacity:1}
+.tm-danger{color:color-mix(in srgb,var(--destructive) 75%,var(--muted-foreground));background:transparent}
+.tm-exec-delete:disabled,.tm-textact:disabled{cursor:not-allowed;filter:grayscale(.5)}
+.tm-exec-confirm{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:4px 8px;font-size:12px}
+.tm-exec-delete-error{font-size:12px;color:var(--destructive);padding:4px 8px;overflow-wrap:anywhere}
+@media(max-width:600px){.tm-exec-delete{opacity:1;width:44px;height:44px}.tm-panel .tm-exec-row.tm-wx-row{padding-right:48px}.tm-exec-confirm button,.tm-wx-actions button{min-height:44px}}
+
+@media(hover:none){.tm-exec-delete{opacity:1}}
+.tm-panel.tm-widget .tm-wx>button.tm-exec-delete{width:44px;height:44px;min-height:44px}
+.tm-panel button.tm-danger,.tm-panel button.tm-danger:hover{color:color-mix(in srgb,var(--destructive) 65%,var(--muted-foreground));background:transparent}

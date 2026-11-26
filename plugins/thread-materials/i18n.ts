@@ -33,6 +33,7 @@ export function displayAgentName(name: string | undefined, ordinal: number | und
 }
 
 const en = {
+ deleteExecutor: "Delete", confirmExecutorDelete: "Delete?", confirmExecutorStop: "Stop and delete?", executorYes: "Yes", executorCancel: "Cancel", executorWorking: "Still running; you can delete it after it finishes", executorDeleteError: "Could not delete. Please try again.",
  // sections and chips
  results: "Results", sources: "Sources", createdMaterials: "Created materials", attachments: "Attachments", executors: "Executors", git: "Git",
  running: "running", total: "total",
@@ -108,6 +109,7 @@ const en = {
 export type Dict = typeof en;
 
 const ru: Dict = {
+ deleteExecutor: "Удалить", confirmExecutorDelete: "Удалить?", confirmExecutorStop: "Остановить и удалить?", executorYes: "Да", executorCancel: "Отмена", executorWorking: "Ещё работает, удалить можно после завершения", executorDeleteError: "Не удалось удалить. Попробуйте ещё раз.",
  results: "Результаты", sources: "Источники", createdMaterials: "Созданные материалы", attachments: "Вложения", executors: "Исполнители", git: "Git",
  running: "работает", total: "всего",
  summaryShort: { running: n => n + " в работе", done: n => n + " завершили", error: n => n + " с ошибкой", stopped: n => n + " " + pluralRu(n, "остановлен", "остановлено", "остановлено") },

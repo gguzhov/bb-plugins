@@ -8,3 +8,5 @@ Chat widget puts Git, subagents, created materials and attachments next to your 
 - **View all.** Open the matching section of BB's side panel. The results panel also links to its archive.
 
 The widget appears in the thread context card. The plugin enables BB's thread context card experiment on installation.
+
+Executors can be removed with inline confirmation: child threads are stopped and deleted; completed subagents stay hidden across reloads.
