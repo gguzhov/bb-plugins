@@ -30,4 +30,7 @@ The command asks the open bb window to look for the key elements of every tweak 
 Open any thread, open the right panel, then click empty space in the chat or press `Escape` to watch it slide away. After the next bb update, run `bb genidev-ui-tweaks check` with a thread and the right panel open.
 
 - **Hide Burn in the mobile header** (`hideBurnInMobileHeader`, off by default) hides only the Burn header action below 768px.
-- **Bento New tab** (`bentoNewTab`, off by default) offers browser, terminal and GitHub tiles, or terminal and GitHub when the native browser is unavailable; `githubUser` selects a GitHub profile (empty by default), opened through the SDK browser preference; blocked URLs are not retried. Search and unsupported layouts keep the native interface.
+- **Bento New tab** (`bentoNewTab`, off by default) always offers Browser, Start terminal and GitHub tiles; `githubUser` selects a GitHub profile (empty by default), opened through the SDK browser preference; blocked URLs are not retried. Search and unsupported layouts keep the native interface.
+
+- **Browser tile start page** (`browserHomeUrl`) defaults to `https://www.google.com` and accepts only HTTP(S); the native desktop browser action takes priority.
+- On phones, the follow-up composer footer uses a single borderless row with 32px controls and 8px gaps, correcting theme grid wrapping without changing desktop layouts.

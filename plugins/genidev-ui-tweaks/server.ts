@@ -23,6 +23,10 @@ export default async function plugin(bb: BbPluginApi) {
       type: "boolean", label: "Bento New tab",
       description: "Show browser, terminal and GitHub tiles when the New tab search is empty.", default: false,
     },
+    browserHomeUrl: {
+      type: "string", label: "Browser tile start page",
+      description: "HTTP or HTTPS page opened when the native browser action is unavailable.", default: "https://www.google.com",
+    },
     githubUser: {
       type: "string", label: "GitHub user for the New tab tile",
       description: "Open repositories for a GitHub username, or the GitHub homepage when empty or invalid.", default: "",

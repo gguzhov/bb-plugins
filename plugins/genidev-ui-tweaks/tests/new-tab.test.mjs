@@ -10,3 +10,10 @@ test('invalid values fall back to the homepage', () => {
     assert.equal(githubUser(name), ''); assert.equal(githubUrl(name), 'https://github.com');
   }
 });
+
+import { browserHomeUrl, DEFAULT_BROWSER_HOME } from '../new-tab.ts';
+test('browser home accepts only absolute HTTP(S)', () => {
+  for (const value of ['', ' ', null, undefined, 'javascript:alert(1)', 'file:///etc/passwd', '/relative', 'not a url']) assert.equal(browserHomeUrl(value), DEFAULT_BROWSER_HOME);
+  assert.equal(browserHomeUrl('https://example.com/start'), 'https://example.com/start');
+  assert.equal(browserHomeUrl('http://localhost:3000'), 'http://localhost:3000/');
+});

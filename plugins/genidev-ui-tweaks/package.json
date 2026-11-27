@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-genidev-ui-tweaks",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "type": "module",
   "engines": {
     "bb": ">=0.50",

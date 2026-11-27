@@ -62,3 +62,33 @@
 .bb-app-shell [data-promptbox] [data-lg-dock-glyph] {
   display: none !important;
 }
+
+/* Beautiful Chat uses a 3-column grid here. Restore one mobile row, including
+   plugin controls, while keeping the host-owned nodes and their handlers. */
+@media (max-width: 767px) {
+  :root:root:root .bb-app-shell [data-follow-up-composer-footer] {
+    display: flex !important; flex-wrap: nowrap !important; align-items: center !important;
+    gap: 8px !important; padding: 4px 16px !important; min-height: 40px !important;
+    max-height: none !important; border: 0 !important; background: transparent !important;
+    box-shadow: none !important; border-radius: 0 !important; overflow: visible !important;
+  }
+  :root:root:root [data-follow-up-composer-footer] > div {
+    display: flex !important; align-items: center; flex-wrap: nowrap; gap: 8px !important;
+  }
+  :root:root:root [data-follow-up-composer-footer] > div:has([aria-label^="Context window"], [aria-label^="Estimated context"], [data-bb-plugin="burn"]) {
+    flex: 0 0 auto; overflow: visible;
+  }
+  :root:root:root [data-follow-up-composer-footer] button {
+    height: 32px !important; min-height: 32px !important; max-height: 32px !important;
+    width: auto !important; min-width: 0 !important; margin: 0 !important;
+    padding: 0 6px !important; flex-shrink: 0; white-space: nowrap;
+  }
+  :root:root:root [data-follow-up-composer-footer] button[aria-label^="Thread details"],
+  :root:root:root [data-follow-up-composer-footer] button[aria-label="Branch"],
+  :root:root:root [data-follow-up-composer-footer] [data-promptbox-project-control] {
+    flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis;
+  }
+  :root:root:root [data-follow-up-composer-footer] [aria-label^="Context window"],
+  :root:root:root [data-follow-up-composer-footer] [aria-label^="Estimated context"] { order: 1; }
+  :root:root:root [data-follow-up-composer-footer] [data-bb-plugin="burn"] { order: 2; flex: none; }
+}

@@ -34,4 +34,7 @@
 `reduceThemeStyleWork` выключена по умолчанию. При включении BB пропускает в ChatGPT Skin и Beautiful Chat правила, которые зависят от наличия дочерних элементов. Палитра и остальные правила темы продолжают работать. Настройка применяется в окне BB и обратима через настройки плагина.
 
 - **Hide Burn in the mobile header** (`hideBurnInMobileHeader`, off by default) hides only the Burn header action below 768px.
-- **Bento New tab** (`bentoNewTab`, off by default) offers browser, terminal and GitHub tiles, or terminal and GitHub when the native browser is unavailable; `githubUser` selects a GitHub profile (empty by default), opened through the SDK browser preference; blocked URLs are not retried. Search and unsupported layouts keep the native interface.
+- **Bento New tab** (`bentoNewTab`, off by default) always offers Browser, Start terminal and GitHub tiles; `githubUser` selects a GitHub profile (empty by default), opened through the SDK browser preference; blocked URLs are not retried. Search and unsupported layouts keep the native interface.
+
+- **Browser tile start page** (`browserHomeUrl`) defaults to `https://www.google.com` and accepts only HTTP(S); the native desktop browser action takes priority.
+- On phones, the follow-up composer footer uses a single borderless row with 32px controls and 8px gaps, correcting theme grid wrapping without changing desktop layouts.

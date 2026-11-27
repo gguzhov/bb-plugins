@@ -30,6 +30,9 @@ const THREAD_OPEN = '[data-panel-id="thread-detail-timeline-panel"]';
 const SIDEBAR = '[data-sidebar="sidebar"]';
 
 export const TWEAKS: readonly Tweak[] = [
+  { id: "mobile-footer", title: "Мобильная строка под полем", css: ["third-party-fixes.css"], anchors: [
+    { selector: '[data-follow-up-composer-footer] [aria-label^="Context window"], [data-follow-up-composer-footer] [aria-label^="Estimated context"], [data-follow-up-composer-footer] [aria-label^="Thread details"], [data-follow-up-composer-footer] [aria-label="Branch"], [data-follow-up-composer-footer] [data-promptbox-project-control], [data-follow-up-composer-footer] [data-bb-plugin="burn"]', when: null }
+  ] },
   {
     id: "new-tab", title: "New tab и мобильный Burn", css: ["new-tab.css"],
     anchors: [

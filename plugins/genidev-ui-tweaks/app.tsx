@@ -35,6 +35,7 @@ function GenidevUiTweaksStyles() {
   const hideBurn = settings?.hideBurnInMobileHeader === true;
   const bento = settings?.bentoNewTab === true;
   const github = settings?.githubUser;
+  const home = settings?.browserHomeUrl;
   useEffect(() => {
     document.documentElement.classList.toggle("genidev-hide-mobile-burn", hideBurn);
     return () => document.documentElement.classList.remove("genidev-hide-mobile-burn");
@@ -44,10 +45,10 @@ function GenidevUiTweaksStyles() {
     const key = "__genidevUiTweaksNewTab";
     holder[key]?.();
     if (!bento) return;
-    const dispose = installBentoNewTab(document, github, url => navigate.openUrl(url));
+    const dispose = installBentoNewTab(document, github, url => navigate.openUrl(url), home);
     holder[key] = dispose;
     return () => { dispose(); if (holder[key] === dispose) delete holder[key]; };
-  }, [bento, github, navigate]);
+  }, [bento, github, navigate, home]);
   useEffect(() => reduceThemeStyleWork ? installThemePerformance(document) : undefined, [reduceThemeStyleWork]);
   // Самопроверка якорей: по запросу `bb genidev-ui-tweaks check` и один раз после загрузки. Без наблюдателей и опросов.
   const send = (id: string | null) => {
