@@ -31,6 +31,13 @@ const SIDEBAR = '[data-sidebar="sidebar"]';
 
 export const TWEAKS: readonly Tweak[] = [
   {
+    id: "new-tab", title: "New tab и мобильный Burn", css: ["new-tab.css"],
+    anchors: [
+      { selector: '[data-thread-header-workflow-actions] > [data-bb-plugin="burn"]', when: null },
+      { selector: '[data-panel-new-tab-page] [data-testid="new-tab-actions"] button[data-panel-new-tab-item][title="Open browser"]', when: null },
+    ],
+  },
+  {
     id: "pin-icon",
     title: "Значок закрепления",
     css: ["pin-icon.css"],

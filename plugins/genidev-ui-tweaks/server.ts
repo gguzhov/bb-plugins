@@ -15,6 +15,18 @@ export const rpcContract = defineRpcContract({
 
 export default async function plugin(bb: BbPluginApi) {
   bb.settings.define({
+    hideBurnInMobileHeader: {
+      type: "boolean", label: "Hide Burn in the mobile header",
+      description: "Hide the Burn header action on screens narrower than 768 pixels.", default: false,
+    },
+    bentoNewTab: {
+      type: "boolean", label: "Bento New tab",
+      description: "Show browser, terminal and GitHub tiles when the New tab search is empty.", default: false,
+    },
+    githubUser: {
+      type: "string", label: "GitHub user for the New tab tile",
+      description: "Open repositories for a GitHub username, or the GitHub homepage when empty or invalid.", default: "",
+    },
     reduceThemeStyleWork: {
       type: "boolean",
       label: "Reduce theme rendering work",
