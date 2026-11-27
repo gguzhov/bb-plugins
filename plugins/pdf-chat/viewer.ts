@@ -15,6 +15,8 @@ import { buildTextLayer, type TextItemLike, type TextStyleLike } from "./text-la
 import { anchoredScroll, stepZoom, wheelZoomFactor, zoomKey } from "./zoom.ts";
 import { outputScaleFor, renderPlan, type VisibleRange } from "./schedule.ts";
 
+import { allowedLinkUrl, destinationPage, linkRectangle, wireLinkLayer } from "./links.ts";
+
 type PdfJs = typeof import("pdfjs-dist");
 
 export const MIN_SCALE = 0.25;
@@ -35,6 +37,7 @@ export function fitWidthScale(pageWidth: number, availableWidth: number): number
 }
 
 export type ViewerCallbacks = {
+  onOpenLink?: (url: string) => void;
   onProgress?: (progress: LoadProgress) => void;
   onDocument?: (info: { numPages: number; fromCache: boolean }) => void;
   onFirstPage?: () => void;
@@ -44,6 +47,7 @@ export type ViewerCallbacks = {
 
 
 type PageSlot = {
+  links?: { element: HTMLElement; dispose: () => void };
   number: number;
   wrap: HTMLDivElement;
   width: number; // PDF units at scale 1
@@ -340,6 +344,7 @@ export class PdfViewer {
       this.callbacks.onFirstPage?.();
     }
     await this.ensureTextLayer(slot, proxy);
+    await this.ensureLinks(slot, proxy);
   }
 
   private isNear(slot: PageSlot): boolean {
@@ -373,7 +378,52 @@ export class PdfViewer {
     }
   }
 
+  private async ensureLinks(slot: PageSlot, proxy: PDFPageProxy): Promise<void> {
+    if (slot.links || this.destroyed || !slot.textLayer) return;
+    const handle = slot.textLayer;
+    try {
+      const annotations = await proxy.getAnnotations({ intent: "display" });
+      const layer = document.createElement("div");
+      layer.className = "pdf-chat-links";
+      const viewport = proxy.getViewport({ scale: 1 });
+      for (const annotation of annotations) {
+        if (annotation.subtype !== "Link") continue;
+        const url = allowedLinkUrl(annotation.url) ? annotation.url : null;
+        // Never turn an unsafe external action into another kind of link.
+        if (!url && (annotation.url || annotation.unsafeUrl)) continue;
+        const page = !url && this.pdf ? await destinationPage(annotation.dest, this.pdf) : null;
+        if (!url && !page) continue;
+        const rect = linkRectangle(annotation.rect, viewport);
+        if (!rect || !rect.width || !rect.height) continue;
+        const link = document.createElement("a");
+        link.href = url ?? `#page=${page}`;
+        link.title = url ?? `Page ${page}`;
+        link.setAttribute("aria-label", link.title);
+        link.draggable = false;
+        Object.assign(link.style, { left: `${rect.left}%`, top: `${rect.top}%`, width: `${rect.width}%`, height: `${rect.height}%` });
+        link.addEventListener("click", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (url) this.callbacks.onOpenLink?.(url);
+          else if (page) {
+            const target = this.slots[page - 1]?.wrap;
+            if (target) this.scroller.scrollTop += target.getBoundingClientRect().top - this.scroller.getBoundingClientRect().top;
+          }
+        });
+        layer.append(link);
+      }
+      if (this.destroyed || handle.cancelled || slot.textLayer !== handle) return;
+      slot.wrap.append(layer);
+      slot.links = { element: layer, dispose: wireLinkLayer(slot.wrap, layer) };
+    } catch (error) {
+      if (!this.destroyed) console.warn("[pdf-chat] link layer failed", error);
+    }
+  }
+
   private release(slot: PageSlot): void {
+    slot.links?.dispose();
+    slot.links?.element.remove();
+    slot.links = undefined;
     if (slot.task) {
       slot.task.cancel();
       slot.task = null;

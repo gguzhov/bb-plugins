@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   definePluginApp,
   experimental_Icon as Icon,
+  useBbNavigate,
   useComposer,
   useRpc,
   type PluginFileOpenerProps,
@@ -89,6 +90,11 @@ function scrollerView(scroller: HTMLElement) {
 }
 
 function PdfFileOpener({ path, source, Original }: PluginFileOpenerProps) {
+  // bb opens the address by this client's browser preference: the in-app Browser or the external one.
+  // No window.open fallback: a false result means bb blocked the scheme, and that decision stands.
+  const navigate = useBbNavigate();
+  const openLinkRef = useRef<(url: string) => void>(() => {});
+  openLinkRef.current = (url) => { navigate.openUrl(url); };
   const composer = useComposer();
   const rpc = useRpc<typeof pdfChatRpcContract>();
   const pagesRef = useRef<HTMLDivElement>(null);
@@ -128,6 +134,7 @@ function PdfFileOpener({ path, source, Original }: PluginFileOpenerProps) {
     setSendError("");
     setFinderError("");
     const viewer = new PdfViewer(scroller, root, {
+      onOpenLink: (url) => openLinkRef.current(url),
       onProgress: (progress) =>
         setState((current) =>
           current.status === "loading" ? { status: "loading", progress, parsing: false } : current,

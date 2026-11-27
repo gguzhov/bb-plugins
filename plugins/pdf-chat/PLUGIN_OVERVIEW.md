@@ -13,6 +13,8 @@
 - Zoom from 25% to 500%: trackpad pinch, Cmd/Ctrl + mouse wheel, or Cmd/Ctrl with `+`, `-` and `0`. The toolbar has `-`, `+` and a Fit button for fit-to-width.
 - Pages are drawn only when they are near the visible area, and PDF parsing runs in a web worker, so long documents do not freeze bb.
 - The last three opened PDFs (up to 96 MB in total) are kept in memory and revalidated on reopen, so switching back is quick.
+- Links in the PDF are clickable. A web link opens the way your bb is set to open links: in the in-app Browser or in your regular browser. A table-of-contents link scrolls to its page. Hover a link to see where it leads.
+- Only web and mail links open; links that would run scripts or launch files are ignored.
 
 ## Files and errors
 
